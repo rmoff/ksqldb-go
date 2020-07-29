@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func Push(u string, q string, rc chan ksqlDBMessageRow) (err error) {
+func Push(u string, q string, rc chan KsqlDBMessageRow) (err error) {
 
 	// Create the client, make the request
 	payload := strings.NewReader("{\"ksql\":\"" + q + "\"}")
@@ -26,7 +26,7 @@ func Push(u string, q string, rc chan ksqlDBMessageRow) (err error) {
 	}
 	defer res.Body.Close()
 
-	var r ksqlDBMessageRow
+	var r KsqlDBMessageRow
 
 	reader := bufio.NewReader(res.Body)
 	doThis := true

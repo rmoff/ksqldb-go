@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func Pull(u string, q string) (m ksqlDBMessage, err error) {
+func Pull(u string, q string) (m KsqlDBMessage, err error) {
 
 	// Create the client, make the request
 	payload := strings.NewReader("{\"ksql\":\"" + q + "\"}")
