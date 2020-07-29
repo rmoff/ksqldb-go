@@ -8,6 +8,27 @@ import (
 	"strings"
 )
 
+// Push queries are continuous queries in which new events
+// or changes to a table's state are pushed to the client.
+// You can think of them as subscribing to a stream of changes.
+//
+// Since push queries never end, this function expects a channel
+// to which it can write new rows of data as and when they are
+// received.
+
+// To use this function pass in the base URL of your
+// ksqlDB server, the SQL query statement, and a channel.
+//
+// The channel is populated with KsqlDBMessageRow which represents
+// one row of data. You will need to define variables to hold
+// each column's value. You can adopt this pattern to do this:
+// 		var COL1 string
+// 		var COL2 float64
+// 		if r := msg.Row.Columns; r != nil {
+// 			COL1 = r[0].(string)
+// 			COL2 = r[1].(float64)
+// 			// Do other stuff with the data here
+// 		}
 func Push(u string, q string, rc chan KsqlDBMessageRow) (err error) {
 
 	// Create the client, make the request

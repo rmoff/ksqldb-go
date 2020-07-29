@@ -4,7 +4,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/rmoff/ksqldb-go"
@@ -15,31 +14,31 @@ const ksqlDBServer string = "http://localhost:8088"
 func main() {
 
 	// Do a pull query
-	log.Printf(`
-	
+	fmt.Printf("\n\n" + `
+  	  🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀
 	✨It's… a Golang client for ksqlDB! ✨
+	  🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀
 	
 
-	Check this out, we can do pull queries, which are like K/V lookups 
-	against materialised views of state built from streams of events in Kafka:
-	`)
+Check this out, we can do pull queries, which are like K/V lookups 
+against materialised views of state built from streams of events in Kafka:` + "\n\n")
 	if e := getDogStats("medium"); e != nil {
-		log.Printf("error calling getDogStats:\n%v", e)
+		fmt.Printf("error calling getDogStats:\n%v", e)
 	}
 
+	time.Sleep(3 * time.Second)
 	// Do a push query (this will continue to run until you kill the program)
-	log.Printf(`
-	
+	fmt.Printf("\n\n" + `
 	                      ❇️ ❇️ ❇️ ❇️ ❇️ ❇️
 
-	➜ We can also do push queries, in which we subscribe to a stream of 
-	notifications of events. This could be every event arriving on a topic,
-	or it could be events that match a given condition specified in a WHERE
-	clause. Note that this is a continuous query, so it'll
-	keep on running until you kill the program. 
-	`)
+➜ We can also do push queries, in which we subscribe to a stream of 
+notifications of events. This could be every event arriving on a topic,
+or it could be events that match a given condition specified in a WHERE
+clause. Note that this is a continuous query, so it'll
+keep on running until you kill the program. ` + "\n\n\n")
+	time.Sleep(2 * time.Second)
 	if e := getDogUpdates(); e != nil {
-		log.Printf("error calling getDogUpdates:\n%v", e)
+		fmt.Printf("error calling getDogUpdates:\n%v", e)
 	}
 
 }
@@ -65,7 +64,7 @@ func getDogStats(s string) (e error) {
 			WINDOW_END = r[1].(string)
 			DOG_SIZE = r[2].(string)
 			DOGS_CT = r[3].(float64)
-			log.Printf("🐶 There are %v dogs size %v between %v and %v ", DOGS_CT, DOG_SIZE, WINDOW_START, WINDOW_END)
+			fmt.Printf("🐶 There are %v dogs size %v between %v and %v\n", DOGS_CT, DOG_SIZE, WINDOW_START, WINDOW_END)
 		}
 	}
 	return nil
@@ -95,7 +94,7 @@ func getDogUpdates() (err error) {
 				t := int64(DATA_TS)
 				ts := time.Unix(t/1000, 0).Format(time.RFC822)
 
-				log.Printf("🐾New dog logged at %v: %v is %v and %v (id %v)", ts, NAME, DOG_SIZE, AGE, ID)
+				fmt.Printf("🐾New dog at %v: '%v' is %v and %v (id %v)\n", ts, NAME, DOG_SIZE, AGE, ID)
 			}
 		}
 

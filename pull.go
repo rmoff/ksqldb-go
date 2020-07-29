@@ -8,6 +8,24 @@ import (
 	"strings"
 )
 
+// Pull queries are like "traditional" RDBMS queries in which
+// the query terminates once the state has been queried.
+//
+// To use this function pass in the base URL of your
+// ksqlDB server, and the SQL query statement.
+//
+// The function returns a KsqlDBMessage which will hold one or
+// more rows of data. You will need to define variables to hold
+// each column's value. You can adopt this pattern to do this:
+// 		var COL1 string
+// 		var COL2 float64
+// 		for _, msg := range m {
+// 			if r := msg.Row.Columns; r != nil {
+// 			COL1 = r[0].(string)
+// 			COL2 = r[1].(float64)
+// 			// Do other stuff with the data here
+// 			}
+// 		}
 func Pull(u string, q string) (m KsqlDBMessage, err error) {
 
 	// Create the client, make the request
