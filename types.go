@@ -1,12 +1,12 @@
 package ksqldb
 
-type ksqlDBMessageRow struct {
+type KsqlDBMessageRow struct {
 	Row struct {
 		Columns []interface{} `json:"columns"`
 	} `json:"row"`
 }
 
-type ksqlDBMessage []struct {
+type KsqlDBMessage []struct {
 	Header struct {
 		QueryID string `json:"queryId"`
 		Schema  string `json:"schema"`
