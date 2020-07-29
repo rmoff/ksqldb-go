@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 )
@@ -34,7 +33,7 @@ func Pull(u string, q string) (m KsqlDBMessage, err error) {
 
 	// Parse the output
 	err = json.Unmarshal(body, &m)
-	log.Println(string(body))
+	// log.Println(string(body))
 	switch len(m) {
 	case 0:
 		// This shouldn't happen…
