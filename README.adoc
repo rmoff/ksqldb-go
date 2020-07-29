@@ -47,7 +47,6 @@ k := "SELECT TIMESTAMPTOSTRING(WINDOWSTART,'yyyy-MM-dd HH:mm:ss','Europe/London'
 m, e := ksqldb.Pull(ksqlDBServer, k)
 
 if e != nil {
-    // handle the error better here, e.g. check for no rows returned
     return fmt.Errorf("Error running Pull request against ksqlDB:\n%v", e)
 }
 
@@ -101,7 +100,6 @@ go func() {
 e := ksqldb.Push(ksqlDBServer, k, rc)
 
 if e != nil {
-    // handle the error better here, e.g. check for no rows returned
     return fmt.Errorf("Error running Push request against ksqlDB:\n%v", e)
 }
 ----
