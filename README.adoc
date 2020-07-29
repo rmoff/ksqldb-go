@@ -7,6 +7,7 @@ v0.01, 29 July 2020
 This is a Go client for https://ksqldb.io/[ksqlDB]. It supports both pull and push queries. 
 
 ⚠️ Disclaimer #1: https://rmoff.net/2020/06/25/learning-golang-some-rough-notes-s01e00/[I am brand new to Go!] Tips (or PRs) to improve the code very welcome :)
+
 ⚠️ Disclaimer #2: This is a personal project and not supported or endorsed by Confluent.
 
 == Installation
@@ -42,11 +43,11 @@ include::test/main.go[]
 == TODO
 
 🔲 Add support for the newer https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-rest-api/streaming-endpoint/[`query-stream`] endpoint (N.B. HTTP2 only)
+
 🔲 Add support for https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-rest-api/ksql-endpoint/[`ksql`] endpoint so that applications can create their own materialised views etc natively
+
 🔲 Check error handling is sufficient
+
 🔲 Add custom error types for different conditions (e.g. `no rows returned`)
+
 🔲 Add support for passing parameters in queries
-
-
-
-
