@@ -135,4 +135,6 @@ if err := ksqldb.Execute(ksqlDBServer, `
 
 🔲 Add support for passing parameters in queries
 
+🔲 Add support for streaming inserts (https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-rest-api/streaming-endpoint/#inserting-rows-into-an-existing-stream)
+
 🔲 Add support for CommandId etc in executing commands so that they can be executed sequentially
