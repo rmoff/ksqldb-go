@@ -2,10 +2,15 @@ package ksqldb
 
 import (
 	"bufio"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"log"
+	"net"
 	"net/http"
 	"strings"
+
+	"golang.org/x/net/http2"
 )
 
 // Push queries are continuous queries in which new events
@@ -15,31 +20,46 @@ import (
 // Since push queries never end, this function expects a channel
 // to which it can write new rows of data as and when they are
 // received.
-
-// To use this function pass in the base URL of your
-// ksqlDB server, the SQL query statement, and a channel.
 //
-// The channel is populated with KsqlDBMessageRow which represents
+// To use this function pass in the base URL of your
+// ksqlDB server, the SQL query statement, and three channels:
+//
+// * ksqldb.Row - rows of data
+// * ksqldb.Header - header (including column definitions).
+//                  If you don't want to block before receiving
+//				    row data then make this channel buffered.
+// * boolean - write true to this channel to cancel the push query
+//
+// The channel is populated with ksqldb.Row which represents
 // one row of data. You will need to define variables to hold
 // each column's value. You can adopt this pattern to do this:
-// 		var COL1 string
-// 		var COL2 float64
-// 		if r := msg.Row.Columns; r != nil {
-// 			COL1 = r[0].(string)
-// 			COL2 = r[1].(float64)
-// 			// Do other stuff with the data here
-// 		}
-func Push(u string, q string, rc chan KsqlDBMessageRow) (err error) {
+// 		var DATA_TS float64
+// 		var ID string
+// 		for row := range rc {
+// 			if row != nil {
+//				DATA_TS = row[0].(float64)
+// 				ID = row[1].(string)
+func Push(u string, q string, rc chan<- Row, hc chan<- Header, cc <-chan bool) (err error) {
 
-	// Create the client, make the request
-	payload := strings.NewReader("{\"ksql\":\"" + q + "\"}")
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", u+"/query", payload)
-
+	// Create the client, force it to use HTTP2 (to avoid `http2: unsupported scheme`)
+	client := http.Client{
+		Transport: &http2.Transport{
+			// So http2.Transport doesn't complain the URL scheme isn't 'https'
+			AllowHTTP: true,
+			// Pretend we are dialing a TLS endpoint.
+			// Note, we ignore the passed tls.Config
+			DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
+				return net.Dial(network, addr)
+			},
+		},
+	}
+	//  make the request
+	payload := strings.NewReader("{\"properties\":{\"ksql.streams.auto.offset.reset\": \"latest\"},\"sql\":\"" + q + "\"}")
+	req, err := http.NewRequest("POST", u+"/query-stream", payload)
+	log.Printf("Sending ksqlDB request:\n\t%v", q)
 	if err != nil {
 		return err
 	}
-	req.Header.Add("Content-Type", "application/vnd.ksql.v1+json; charset=utf-8")
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -47,51 +67,94 @@ func Push(u string, q string, rc chan KsqlDBMessageRow) (err error) {
 	}
 	defer res.Body.Close()
 
-	var r KsqlDBMessageRow
-
 	reader := bufio.NewReader(res.Body)
+
 	doThis := true
-	defer close(rc)
+	var x interface{}
+	var h Header
+
 	for doThis {
-		// Read the next chunk
-		lb, err := reader.ReadBytes('\n')
-		if err != nil {
-			doThis = false
-		}
-
-		if len(lb) > 2 {
-
-			// Do a dirty hack to remove the trailing comma and \r so that the `row` can be
-			// parsed as JSON
-			// e.g.
-			// {"row":{"columns":["Burnett St",1595373720000,122,117]}},
-			//   becomes
-			// {"row":{"columns":["Burnett St",1595373720000,122,117]}}
-			//
-			// Pretty sure instead of `ReadBytes` above I should be using
-			// Scanner (https://golang.org/pkg/bufio/#Scanner) to split on ASCII 44 10 13 (,CRLF)
-			lb = lb[:len(lb)-2]
-
-			// Convert the JSON to Go object
-			if strings.Index(string(lb), "[{\"header\"") == 0 {
-				// it's the header row; ignore it
-			} else if strings.Index(string(lb), "{\"row\":{\"columns\"") == 0 {
-				// Looks like a Row, let's process it!
-				err = json.Unmarshal(lb, &r)
-				if err != nil {
-					return fmt.Errorf("error decoding row JSON %v\n%v)", string(lb), err)
-				} else {
-					if r.Row.Columns != nil {
-
-						rc <- r
-					}
-				}
-			} else {
-				return fmt.Errorf("Got something that didn't look like a row or header from ksqlDB and is probably an error:\n%v", string(lb))
-
+		select {
+		case <-cc:
+			// close the channels and terminate the loop regardless
+			defer close(rc)
+			defer close(hc)
+			defer func() { doThis = false }()
+			// Try to close the query
+			payload := strings.NewReader("{\"queryId\":\"" + h.queryId + "\"}")
+			req, err := http.NewRequest("POST", u+"/close-query", payload)
+			log.Printf("Closing ksqlDB query\t%v", h.queryId)
+			if err != nil {
+				return fmt.Errorf("Failed to construct HTTP request to cancel query\n%v", err)
 			}
-		}
-	}
 
+			res, err := client.Do(req)
+			if err != nil {
+				return fmt.Errorf("Failed to execute HTTP request to cancel query\n%v", err)
+			}
+			if res.StatusCode != 200 {
+				return fmt.Errorf("Close query failed:\n%v", res)
+			}
+			log.Println("Query closed.")
+		default:
+
+			// Read the next chunk
+			body, err := reader.ReadBytes('\n')
+			if err != nil {
+				doThis = false
+			}
+			if res.StatusCode != 200 {
+				return fmt.Errorf("The HTTP request did not return a success code:\n%v / %v", res.StatusCode, string(body))
+			}
+			// log.Println(string(body))
+			if len(body) > 0 {
+
+				// Parse the output
+				if err := json.Unmarshal(body, &x); err != nil {
+					return fmt.Errorf("Could not parse the response as JSON:\n%v\n%v", err, string(body))
+				}
+
+				switch zz := x.(type) {
+				case map[string]interface{}:
+					// It's a header row, so extract the data
+					// {"queryId":null,"columnNames":["WINDOW_START","WINDOW_END","DOG_SIZE","DOGS_CT"],"columnTypes":["STRING","STRING","STRING","BIGINT"]}
+					if _, ok := zz["queryId"].(string); ok {
+						h.queryId = zz["queryId"].(string)
+					} else {
+						log.Println("Query ID not found - this is expected for a pull query")
+					}
+
+					names, okn := zz["columnNames"].([]interface{})
+					types, okt := zz["columnTypes"].([]interface{})
+					if okn && okt {
+						for col := range names {
+							if n, o := names[col].(string); n != "" && o == true {
+								if t, o := types[col].(string); t != "" && o == true {
+									a := Column{Name: n, Type: t}
+									h.columns = append(h.columns, a)
+
+								} else {
+									log.Printf("Nil type found for column %v", col)
+								}
+							} else {
+								log.Printf("Nil name found for column %v", col)
+							}
+						}
+					} else {
+						log.Printf("Column names/types not found in header:\n%v", zz)
+					}
+					// log.Println("Header:", h)
+					hc <- h
+
+				case []interface{}:
+					// It's a row of data
+					// log.Println("Row:", zz)
+					rc <- zz
+				}
+			}
+
+		}
+
+	}
 	return nil
 }

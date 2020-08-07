@@ -1,10 +1,10 @@
 = ksqlDB Go library
 Robin Moffatt <robin@moffatt.me>
-v0.01, 29 July 2020
+v0.02, 7 August 2020
 
 :toc:
 
-This is a Go client for https://ksqldb.io/[ksqlDB]. It supports both pull and push queries. 
+This is a Go client for https://ksqldb.io/[ksqlDB]. It supports both pull and push queries, as well as command execution. 
 
 ⚠️ Disclaimer #1: https://rmoff.net/2020/06/25/learning-golang-some-rough-notes-s01e00/[I am brand new to Go!] Tips (or PRs) to improve the code very welcome :)
 
@@ -46,24 +46,21 @@ go run ./test/
 [source,go]
 ----
 k := "SELECT TIMESTAMPTOSTRING(WINDOWSTART,'yyyy-MM-dd HH:mm:ss','Europe/London') AS WINDOW_START, TIMESTAMPTOSTRING(WINDOWEND,'HH:mm:ss','Europe/London') AS WINDOW_END, DOG_SIZE, DOGS_CT FROM DOGS_BY_SIZE WHERE DOG_SIZE='" + s + "';"
-m, e := ksqldb.Pull(ksqlDBServer, k)
+_, r, e := ksqldb.Pull(ksqlDBServer, k)
 
 if e != nil {
+    // handle the error better here, e.g. check for no rows returned
     return fmt.Errorf("Error running Pull request against ksqlDB:\n%v", e)
 }
 
-var WINDOW_START string
-var WINDOW_END string
 var DOG_SIZE string
 var DOGS_CT float64
-for _, msg := range m {
-    if r := msg.Row.Columns; r != nil {
-
-        WINDOW_START = r[0].(string)
-        WINDOW_END = r[1].(string)
-        DOG_SIZE = r[2].(string)
-        DOGS_CT = r[3].(float64)
-        fmt.Printf("🐶 There are %v dogs size %v between %v and %v\n", DOGS_CT, DOG_SIZE, WINDOW_START, WINDOW_END)
+for _, row := range r {
+    if row != nil {
+        // Should do some type assertions here
+        DOG_SIZE = row[2].(string)
+        DOGS_CT = row[3].(float64)
+        fmt.Printf("🐶 There are %v dogs size %v\n", DOGS_CT, DOG_SIZE)
     }
 }
 ----
@@ -72,49 +69,70 @@ for _, msg := range m {
 
 [source,go]
 ----
-rc := make(chan ksqldb.KsqlDBMessageRow)
+rc := make(chan ksqldb.Row)
+hc := make(chan ksqldb.Header, 1)
+cc := make(chan bool)
+
 k := "SELECT ROWTIME, ID, NAME, DOGSIZE, AGE FROM DOGS EMIT CHANGES;"
-var DATA_TS float64
-var ID string
-var NAME string
-var DOG_SIZE string
-var AGE string
 
+// This Go routine will handle rows as and when they
+// are sent to the channel
 go func() {
+    var NAME string
+    var DOG_SIZE string
     for row := range rc {
-        if r := row.Row.Columns; r != nil {
+        if row != nil {
+            // Should do some type assertions here
+            NAME = row[2].(string)
+            DOG_SIZE = row[3].(string)
 
-            DATA_TS = r[0].(float64)
-            ID = r[1].(string)
-            NAME = r[2].(string)
-            DOG_SIZE = r[3].(string)
-            AGE = r[4].(string)
-
-            // Handle the timestamp
-            t := int64(DATA_TS)
-            ts := time.Unix(t/1000, 0).Format(time.RFC822)
-
-            log.Printf("🐾New dog logged at %v: %v is %v and %v (id %v)", ts, NAME, DOG_SIZE, AGE, ID)
+            fmt.Printf("🐾%v: %v\n",  NAME, DOG_SIZE)
         }
     }
 
 }()
-e := ksqldb.Push(ksqlDBServer, k, rc)
+
+// This Go routine shows how you can cancel a Push query as and when required
+go func() {
+    time.Sleep(10 * time.Second)
+    log.Println("⏱️ Terminating the continuous query now, we've seen enough")
+    cc <- true
+}()
+
+e := ksqldb.Push(ksqlDBServer, k, rc, hc, cc)
 
 if e != nil {
+    // handle the error better here, e.g. check for no rows returned
     return fmt.Errorf("Error running Push request against ksqlDB:\n%v", e)
 }
 ----
 
+=== Execute a command
+
+[source,go]
+----
+if err := ksqldb.Execute(ksqlDBServer, `
+	CREATE STREAM DOGS (ID STRING KEY, 
+						NAME STRING, 
+						DOGSIZE STRING, 
+						AGE STRING) 
+				  WITH (KAFKA_TOPIC='dogs', 
+				  VALUE_FORMAT='JSON');
+`); err != nil {
+    return fmt.Errorf("Error creating the DOGS stream.\n%v", err)
+}
+----
 
 == TODO
 
-🔲 Add support for the newer https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-rest-api/streaming-endpoint/[`query-stream`] endpoint (N.B. HTTP2 only)
+☑️ Add support for the newer https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-rest-api/streaming-endpoint/[`query-stream`] endpoint (N.B. HTTP2 only)
 
-🔲 Add support for https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-rest-api/ksql-endpoint/[`ksql`] endpoint so that applications can create their own materialised views etc natively
+☑️ Add support for https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-rest-api/ksql-endpoint/[`ksql`] endpoint so that applications can create their own materialised views etc natively
 
 🔲 Check error handling is sufficient
 
 🔲 Add custom error types for different conditions (e.g. `no rows returned`)
 
 🔲 Add support for passing parameters in queries
+
+🔲 Add support for CommandId etc in executing commands so that they can be executed sequentially

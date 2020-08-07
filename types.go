@@ -1,17 +1,15 @@
 package ksqldb
 
-type KsqlDBMessageRow struct {
-	Row struct {
-		Columns []interface{} `json:"columns"`
-	} `json:"row"`
+type Row []interface{}
+
+type Payload []Row
+
+type Header struct {
+	queryId string
+	columns []Column
 }
 
-type KsqlDBMessage []struct {
-	Header struct {
-		QueryID string `json:"queryId"`
-		Schema  string `json:"schema"`
-	} `json:"header,omitempty"`
-	Row struct {
-		Columns []interface{} `json:"columns"`
-	} `json:"row,omitempty"`
+type Column struct {
+	Name string
+	Type string
 }
