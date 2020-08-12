@@ -1,6 +1,7 @@
 package ksqldb
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -31,7 +32,7 @@ import (
 // 			// Do other stuff with the data here
 // 			}
 // 		}
-func Pull(u string, q string) (h Header, r Payload, err error) {
+func Pull(ctx context.Context, u string, q string) (h Header, r Payload, err error) {
 
 	// Create the client, force it to use HTTP2 (to avoid `http2: unsupported scheme`)
 	client := http.Client{
@@ -48,7 +49,7 @@ func Pull(u string, q string) (h Header, r Payload, err error) {
 
 	// Create the request
 	payload := strings.NewReader("{\"sql\":\"" + q + "\"}")
-	req, err := http.NewRequest("POST", u+"/query-stream", payload)
+	req, err := http.NewRequestWithContext(ctx, "POST", u+"/query-stream", payload)
 
 	if err != nil {
 		return h, r, err

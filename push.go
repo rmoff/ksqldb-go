@@ -2,6 +2,7 @@ package ksqldb
 
 import (
 	"bufio"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -21,14 +22,13 @@ import (
 // to which it can write new rows of data as and when they are
 // received.
 //
-// To use this function pass in the base URL of your
-// ksqlDB server, the SQL query statement, and three channels:
+// To use this function pass in a context, the base URL of your
+// ksqlDB server, the SQL query statement, and two channels:
 //
 // * ksqldb.Row - rows of data
 // * ksqldb.Header - header (including column definitions).
 //                  If you don't want to block before receiving
 //				    row data then make this channel buffered.
-// * boolean - write true to this channel to cancel the push query
 //
 // The channel is populated with ksqldb.Row which represents
 // one row of data. You will need to define variables to hold
@@ -39,7 +39,7 @@ import (
 // 			if row != nil {
 //				DATA_TS = row[0].(float64)
 // 				ID = row[1].(string)
-func Push(u string, q string, rc chan<- Row, hc chan<- Header, cc <-chan bool) (err error) {
+func Push(ctx context.Context, u string, q string, rc chan<- Row, hc chan<- Header) (err error) {
 
 	// Create the client, force it to use HTTP2 (to avoid `http2: unsupported scheme`)
 	client := http.Client{
@@ -55,7 +55,7 @@ func Push(u string, q string, rc chan<- Row, hc chan<- Header, cc <-chan bool) (
 	}
 	//  make the request
 	payload := strings.NewReader("{\"properties\":{\"ksql.streams.auto.offset.reset\": \"latest\"},\"sql\":\"" + q + "\"}")
-	req, err := http.NewRequest("POST", u+"/query-stream", payload)
+	req, err := http.NewRequestWithContext(ctx, "POST", u+"/query-stream", payload)
 	log.Printf("Sending ksqlDB request:\n\t%v", q)
 	if err != nil {
 		return err
@@ -75,14 +75,14 @@ func Push(u string, q string, rc chan<- Row, hc chan<- Header, cc <-chan bool) (
 
 	for doThis {
 		select {
-		case <-cc:
+		case <-ctx.Done():
 			// close the channels and terminate the loop regardless
 			defer close(rc)
 			defer close(hc)
 			defer func() { doThis = false }()
 			// Try to close the query
 			payload := strings.NewReader("{\"queryId\":\"" + h.queryId + "\"}")
-			req, err := http.NewRequest("POST", u+"/close-query", payload)
+			req, err := http.NewRequestWithContext(ctx, "POST", u+"/close-query", payload)
 			log.Printf("Closing ksqlDB query\t%v", h.queryId)
 			if err != nil {
 				return fmt.Errorf("Failed to construct HTTP request to cancel query\n%v", err)

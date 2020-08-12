@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/rmoff/ksqldb-go"
 )
@@ -9,7 +11,10 @@ import (
 func getDogStats(s string) (e error) {
 
 	k := "SELECT TIMESTAMPTOSTRING(WINDOWSTART,'yyyy-MM-dd HH:mm:ss','Europe/London') AS WINDOW_START, TIMESTAMPTOSTRING(WINDOWEND,'HH:mm:ss','Europe/London') AS WINDOW_END, DOG_SIZE, DOGS_CT FROM DOGS_BY_SIZE WHERE DOG_SIZE='" + s + "';"
-	_, r, e := ksqldb.Pull(ksqlDBServer, k)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	defer cancel()
+	_, r, e := ksqldb.Pull(ctx, ksqlDBServer, k)
 
 	if e != nil {
 		// handle the error better here, e.g. check for no rows returned
