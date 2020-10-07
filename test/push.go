@@ -8,7 +8,7 @@ import (
 	"github.com/rmoff/ksqldb-go"
 )
 
-func getDogUpdates() (err error) {
+func getDogUpdates(client *ksqldb.Client) (err error) {
 
 	rc := make(chan ksqldb.Row)
 	hc := make(chan ksqldb.Header, 1)
@@ -50,7 +50,7 @@ func getDogUpdates() (err error) {
 		cc <- true
 	}()
 
-	e := ksqldb.Push(ksqlDBServer, k, rc, hc, cc)
+	e := client.Push(k, rc, hc, cc)
 
 	if e != nil {
 		// handle the error better here, e.g. check for no rows returned
