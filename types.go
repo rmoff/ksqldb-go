@@ -13,3 +13,9 @@ type Column struct {
 	Name string
 	Type string
 }
+
+type Client struct {
+	url     string
+	isDebug bool
+	logf    func(format string, v ...interface{})
+}
