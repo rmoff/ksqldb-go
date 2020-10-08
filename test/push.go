@@ -1,8 +1,8 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/rmoff/ksqldb-go"
@@ -12,7 +12,6 @@ func getDogUpdates(client *ksqldb.Client) (err error) {
 
 	rc := make(chan ksqldb.Row)
 	hc := make(chan ksqldb.Header, 1)
-	cc := make(chan bool)
 
 	k := "SELECT ROWTIME, ID, NAME, DOGSIZE, AGE FROM DOGS EMIT CHANGES;"
 
@@ -43,14 +42,10 @@ func getDogUpdates(client *ksqldb.Client) (err error) {
 
 	}()
 
-	// This Go routine shows how you can cancel a Push query as and when required
-	go func() {
-		time.Sleep(10 * time.Second)
-		log.Println("⏱️ Terminating the continuous query now, we've seen enough")
-		cc <- true
-	}()
+	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	defer cancel()
 
-	e := client.Push(k, rc, hc, cc)
+	e := client.Push(ctx, k, rc, hc)
 
 	if e != nil {
 		// handle the error better here, e.g. check for no rows returned
