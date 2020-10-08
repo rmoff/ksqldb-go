@@ -10,6 +10,8 @@ import (
 )
 
 const ksqlDBServer string = "http://localhost:8088"
+const ksqlDBUser string = ""
+const ksqlDBPW string = ""
 
 func main() {
 

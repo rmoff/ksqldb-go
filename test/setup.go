@@ -8,8 +8,10 @@ import (
 )
 
 func setup() (*ksqldb.Client, error) {
-	//create ksqldb client
-	client := ksqldb.NewClient(ksqlDBServer).Debug()
+
+	//create ksqlDB client
+	client := ksqldb.NewClient(ksqlDBServer, ksqlDBUser, ksqlDBPW).Debug()
+
 	// Create the dummy data connector
 	if err := client.Execute(`
 		CREATE SOURCE CONNECTOR DOGS WITH (
