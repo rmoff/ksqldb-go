@@ -7,10 +7,11 @@ import (
 	"github.com/rmoff/ksqldb-go"
 )
 
-func setup() (err error) {
-
+func setup() (*ksqldb.Client, error) {
+	//create ksqldb client
+	client := ksqldb.NewClient(ksqlDBServer).Debug()
 	// Create the dummy data connector
-	if err := ksqldb.Execute(ksqlDBServer, `
+	if err := client.Execute(`
 		CREATE SOURCE CONNECTOR DOGS WITH (
 		'connector.class'             = 'io.mdrogalis.voluble.VolubleSourceConnector',
 		'key.converter'               = 'org.apache.kafka.connect.storage.StringConverter',
@@ -23,7 +24,7 @@ func setup() (err error) {
 		'topic.dogs.throttle.ms'    = 1000 
 		);
 		`); err != nil {
-		return fmt.Errorf("Error creating the source connector.\n%v", err)
+		return nil, fmt.Errorf("Error creating the source connector.\n%v", err)
 	}
 
 	// This is a bit lame but without doing the cool stuff with CommandId etc
@@ -31,7 +32,7 @@ func setup() (err error) {
 	time.Sleep(5 * time.Second)
 
 	// Create the DOGS stream
-	if err := ksqldb.Execute(ksqlDBServer, `
+	if err := client.Execute(`
 	CREATE STREAM DOGS (ID STRING KEY, 
 						NAME STRING, 
 						DOGSIZE STRING, 
@@ -39,7 +40,7 @@ func setup() (err error) {
 				  WITH (KAFKA_TOPIC='dogs', 
 				  VALUE_FORMAT='JSON');
 	`); err != nil {
-		return fmt.Errorf("Error creating the DOGS stream.\n%v", err)
+		return nil, fmt.Errorf("Error creating the DOGS stream.\n%v", err)
 	}
 
 	// This is a bit lame but without doing the cool stuff with CommandId etc
@@ -47,17 +48,17 @@ func setup() (err error) {
 	time.Sleep(5 * time.Second)
 
 	// Create the DOGS_BY_SIZE table
-	if err := ksqldb.Execute(ksqlDBServer, `
+	if err := client.Execute(`
 	CREATE TABLE DOGS_BY_SIZE AS 
 		SELECT DOGSIZE AS DOG_SIZE, COUNT(*) AS DOGS_CT 
 		FROM DOGS WINDOW TUMBLING (SIZE 15 MINUTE) 
 		GROUP BY DOGSIZE;
 	`); err != nil {
-		return fmt.Errorf("Error creating the DOGS stream.\n%v", err)
+		return nil, fmt.Errorf("Error creating the DOGS stream.\n%v", err)
 	}
 	// This is a bit lame but without doing the cool stuff with CommandId etc
 	// it's the easiest way to make sure the table exists before continuing
 	time.Sleep(10 * time.Second)
 
-	return nil
+	return client, nil
 }

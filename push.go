@@ -22,8 +22,8 @@ import (
 // to which it can write new rows of data as and when they are
 // received.
 //
-// To use this function pass in a context, the base URL of your
-// ksqlDB server, the SQL query statement, and two channels:
+// To use this function pass in a context, the SQL query statement,
+// and two channels:
 //
 // * ksqldb.Row - rows of data
 // * ksqldb.Header - header (including column definitions).
@@ -39,7 +39,7 @@ import (
 // 			if row != nil {
 //				DATA_TS = row[0].(float64)
 // 				ID = row[1].(string)
-func Push(ctx context.Context, u string, q string, rc chan<- Row, hc chan<- Header) (err error) {
+func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- Header) (err error) {
 
 	// Create the client, force it to use HTTP2 (to avoid `http2: unsupported scheme`)
 	client := http.Client{
@@ -55,8 +55,8 @@ func Push(ctx context.Context, u string, q string, rc chan<- Row, hc chan<- Head
 	}
 	//  make the request
 	payload := strings.NewReader("{\"properties\":{\"ksql.streams.auto.offset.reset\": \"latest\"},\"sql\":\"" + q + "\"}")
-	req, err := http.NewRequestWithContext(ctx, "POST", u+"/query-stream", payload)
-	log.Printf("Sending ksqlDB request:\n\t%v", q)
+	req, err := http.NewRequestWithContext(ctx, "POST", cl.url+"/query-stream", payload)
+	cl.log("Sending ksqlDB request:\n\t%v", q)
 	if err != nil {
 		return err
 	}
@@ -82,8 +82,8 @@ func Push(ctx context.Context, u string, q string, rc chan<- Row, hc chan<- Head
 			defer func() { doThis = false }()
 			// Try to close the query
 			payload := strings.NewReader("{\"queryId\":\"" + h.queryId + "\"}")
-			req, err := http.NewRequestWithContext(ctx, "POST", u+"/close-query", payload)
-			log.Printf("Closing ksqlDB query\t%v", h.queryId)
+			req, err := http.NewRequestWithContext(ctx, "POST", cl.url+"/close-query", payload)
+			cl.log("Closing ksqlDB query\t%v", h.queryId)
 			if err != nil {
 				return fmt.Errorf("Failed to construct HTTP request to cancel query\n%v", err)
 			}
@@ -121,27 +121,27 @@ func Push(ctx context.Context, u string, q string, rc chan<- Row, hc chan<- Head
 					if _, ok := zz["queryId"].(string); ok {
 						h.queryId = zz["queryId"].(string)
 					} else {
-						log.Println("Query ID not found - this is expected for a pull query")
+						cl.log("Query ID not found - this is expected for a pull query")
 					}
 
 					names, okn := zz["columnNames"].([]interface{})
 					types, okt := zz["columnTypes"].([]interface{})
 					if okn && okt {
 						for col := range names {
-							if n, o := names[col].(string); n != "" && o == true {
-								if t, o := types[col].(string); t != "" && o == true {
+							if n, ok := names[col].(string); n != "" && ok {
+								if t, ok := types[col].(string); t != "" && ok {
 									a := Column{Name: n, Type: t}
 									h.columns = append(h.columns, a)
 
 								} else {
-									log.Printf("Nil type found for column %v", col)
+									cl.log("Nil type found for column %v", col)
 								}
 							} else {
-								log.Printf("Nil name found for column %v", col)
+								cl.log("Nil name found for column %v", col)
 							}
 						}
 					} else {
-						log.Printf("Column names/types not found in header:\n%v", zz)
+						cl.log("Column names/types not found in header:\n%v", zz)
 					}
 					// log.Println("Header:", h)
 					hc <- h

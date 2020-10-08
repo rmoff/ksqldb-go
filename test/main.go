@@ -13,8 +13,9 @@ const ksqlDBServer string = "http://localhost:8088"
 
 func main() {
 
-	if e := setup(); e != nil {
-		log.Printf("Failed to run setup statements.\n%v\nExiting.", e)
+	client, err := setup()
+	if err != nil {
+		log.Printf("Failed to run setup statements.\n%v\nExiting.", err)
 		os.Exit(1)
 	}
 
@@ -26,7 +27,7 @@ func main() {
 
 	Check this out, we can do pull queries, which are like K/V lookups
 	against materialised views of state built from streams of events in Kafka:` + "\n\n")
-	if e := getDogStats("medium"); e != nil {
+	if e := getDogStats(client, "medium"); e != nil {
 		fmt.Printf("error calling getDogStats:\n%v", e)
 	}
 
@@ -42,7 +43,7 @@ func main() {
 	to terminate it after 10 seconds, but by default it will run until the program
 	is killed.` + "\n\n\n")
 	time.Sleep(2 * time.Second)
-	if e := getDogUpdates(); e != nil {
+	if e := getDogUpdates(client); e != nil {
 		fmt.Printf("error calling getDogUpdates:\n%v", e)
 	}
 }

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"strings"
@@ -17,8 +16,7 @@ import (
 // Pull queries are like "traditional" RDBMS queries in which
 // the query terminates once the state has been queried.
 //
-// To use this function pass in the base URL of your
-// ksqlDB server, and the SQL query statement.
+// To use this function pass in the the SQL query statement.
 //
 // The function returns a ksqldb.Header and ksqldb.Payload
 // which will hold one or more rows of data. You will need to
@@ -32,7 +30,7 @@ import (
 // 			// Do other stuff with the data here
 // 			}
 // 		}
-func Pull(ctx context.Context, u string, q string) (h Header, r Payload, err error) {
+func (cl *Client) Pull(ctx context.Context, q string) (h Header, r Payload, err error) {
 
 	// Create the client, force it to use HTTP2 (to avoid `http2: unsupported scheme`)
 	client := http.Client{
@@ -49,7 +47,7 @@ func Pull(ctx context.Context, u string, q string) (h Header, r Payload, err err
 
 	// Create the request
 	payload := strings.NewReader("{\"sql\":\"" + q + "\"}")
-	req, err := http.NewRequestWithContext(ctx, "POST", u+"/query-stream", payload)
+	req, err := http.NewRequestWithContext(ctx, "POST", cl.url+"/query-stream", payload)
 
 	if err != nil {
 		return h, r, err
@@ -80,12 +78,12 @@ func Pull(ctx context.Context, u string, q string) (h Header, r Payload, err err
 
 	switch len(x) {
 	case 0:
-		return h, r, fmt.Errorf("No results (not even a header row) returned from lookup. Maybe we got an error:%v", err)
+		return h, r, fmt.Errorf("%w (not even a header row) returned from lookup. Maybe we got an error:%v", ErrNotFound, err)
 	case 1:
 		// len 1 means we just got a header, no rows
 		// Should we define our own error types here so we can return more clearly
 		// an indicator that no rows were found?
-		return h, r, fmt.Errorf("No result found")
+		return h, r, ErrNotFound
 	default:
 		for _, z := range x {
 			switch zz := z.(type) {
@@ -95,27 +93,27 @@ func Pull(ctx context.Context, u string, q string) (h Header, r Payload, err err
 				if _, ok := zz["queryId"].(string); ok {
 					h.queryId = zz["queryId"].(string)
 				} else {
-					log.Println("(Query ID not found - this is expected for a pull query)")
+					cl.log("(Query ID not found - this is expected for a pull query)")
 				}
 
 				names, okn := zz["columnNames"].([]interface{})
 				types, okt := zz["columnTypes"].([]interface{})
 				if okn && okt {
 					for col := range names {
-						if n, o := names[col].(string); n != "" && o == true {
-							if t, o := types[col].(string); t != "" && o == true {
+						if n, ok := names[col].(string); n != "" && ok {
+							if t, ok := types[col].(string); t != "" && ok {
 								a := Column{Name: n, Type: t}
 								h.columns = append(h.columns, a)
 
 							} else {
-								log.Printf("Nil type found for column %v", col)
+								cl.log("Nil type found for column %v", col)
 							}
 						} else {
-							log.Printf("Nil name found for column %v", col)
+							cl.log("Nil name found for column %v", col)
 						}
 					}
 				} else {
-					log.Printf("Column names/types not found in header:\n%v", zz)
+					cl.log("Column names/types not found in header:\n%v", zz)
 				}
 
 			case []interface{}:

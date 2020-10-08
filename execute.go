@@ -3,7 +3,6 @@ package ksqldb
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 )
@@ -19,7 +18,7 @@ import (
 //
 // TODO Add support for commandSequenceNumber and streamsProperties
 // TODO Add better support for responses to CREATE/DROP/TERMINATE (e.g. commandID, commandStatus.status, etc)
-func Execute(u string, q string) (err error) {
+func (cl *Client) Execute(q string) (err error) {
 
 	// Create the client
 	client := &http.Client{}
@@ -29,8 +28,8 @@ func Execute(u string, q string) (err error) {
 	q = strings.ReplaceAll(q, "\n", "")
 	//  make the request
 	payload := strings.NewReader("{\"ksql\":\"" + q + "\"}")
-	req, err := http.NewRequest("POST", u+"/ksql", payload)
-	log.Printf("Sending ksqlDB request:\n\t%v", q)
+	req, err := http.NewRequest("POST", cl.url+"/ksql", payload)
+	cl.log("Sending ksqlDB request:\n\t%v", q)
 	if err != nil {
 		return err
 	}
