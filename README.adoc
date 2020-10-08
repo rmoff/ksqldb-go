@@ -1,6 +1,6 @@
 = ksqlDB Go library
 Robin Moffatt <robin@moffatt.me>
-v0.02, 7 August 2020
+v0.03, 8 October 2020
 
 :toc:
 
@@ -122,16 +122,4 @@ if err := ksqldb.Execute(ctx, ksqlDBServer, `
 
 == TODO
 
-☑️ Add support for the newer https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-rest-api/streaming-endpoint/[`query-stream`] endpoint (N.B. HTTP2 only)
-
-☑️ Add support for https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-rest-api/ksql-endpoint/[`ksql`] endpoint so that applications can create their own materialised views etc natively
-
-🔲 Check error handling is sufficient
-
-🔲 Add custom error types for different conditions (e.g. `no rows returned`)
-
-🔲 Add support for passing parameters in queries
-
-🔲 Add support for streaming inserts (https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-rest-api/streaming-endpoint/#inserting-rows-into-an-existing-stream)
-
-🔲 Add support for CommandId etc in executing commands so that they can be executed sequentially
+See https://github.com/rmoff/ksqldb-go/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22
