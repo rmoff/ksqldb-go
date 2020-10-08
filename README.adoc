@@ -1,6 +1,6 @@
 = ksqlDB Go library
 Robin Moffatt <robin@moffatt.me>
-v0.03, 8 October 2020
+v0.04, 8 October 2020
 
 :toc:
 
