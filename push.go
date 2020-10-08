@@ -41,26 +41,34 @@ import (
 // 				ID = row[1].(string)
 func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- Header) (err error) {
 
-	// Create the client, force it to use HTTP2 (to avoid `http2: unsupported scheme`)
-	client := http.Client{
-		Transport: &http2.Transport{
-			// So http2.Transport doesn't complain the URL scheme isn't 'https'
+	payload := strings.NewReader("{\"properties\":{\"ksql.streams.auto.offset.reset\": \"latest\"},\"sql\":\"" + q + "\"}")
+	req, err := http.NewRequestWithContext(ctx, "POST", cl.url+"/query-stream", payload)
+	if err != nil {
+		return err
+	}
+
+	// If we've got creds to pass, let's pass them
+	if cl.username != "" {
+		req.SetBasicAuth(cl.username, cl.password)
+	}
+
+	client := &http.Client{}
+	if req.URL.Scheme == "http" {
+		// ksqlDB uses HTTP2 and if the server is on HTTP then Golang will not
+		// use HTTP2 unless we force it to, thus.
+		// Without this you get the error `http2: unsupported scheme`
+		client.Transport = &http2.Transport{
 			AllowHTTP: true,
 			// Pretend we are dialing a TLS endpoint.
 			// Note, we ignore the passed tls.Config
 			DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
 				return net.Dial(network, addr)
 			},
-		},
-	}
-	//  make the request
-	payload := strings.NewReader("{\"properties\":{\"ksql.streams.auto.offset.reset\": \"latest\"},\"sql\":\"" + q + "\"}")
-	req, err := http.NewRequestWithContext(ctx, "POST", cl.url+"/query-stream", payload)
-	cl.log("Sending ksqlDB request:\n\t%v", q)
-	if err != nil {
-		return err
+		}
 	}
 
+	//  make the request
+	cl.log("Sending ksqlDB request:\n\t%v", q)
 	res, err := client.Do(req)
 	if err != nil {
 		return err

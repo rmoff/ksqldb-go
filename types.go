@@ -18,8 +18,11 @@ type Column struct {
 	Type string
 }
 
+// The ksqlDB client
 type Client struct {
-	url     string
-	isDebug bool
-	logf    func(format string, v ...interface{})
+	url      string
+	username string
+	password string
+	isDebug  bool
+	logf     func(format string, v ...interface{})
 }
