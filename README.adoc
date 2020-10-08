@@ -45,8 +45,10 @@ Create a ksqlDB Client
 
 [source,go]
 ----
-client := ksqldb.NewClient("http://ksqldb:8088").Debug()
+client := ksqldb.NewClient("http://ksqldb:8088","username","password").Debug()
 ----
+
+For no authentication just use blank username and password values. 
 
 === Pull query
 
