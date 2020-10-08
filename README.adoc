@@ -41,6 +41,13 @@ See the link:test/environment.adoc[test environment here], and link:test/main.go
 go run ./test/
 ----
 
+Create a ksqlDB Client 
+
+[source,go]
+----
+client := ksqldb.NewClient("http://ksqldb:8088").Debug()
+----
+
 === Pull query
 
 [source,go]
@@ -49,7 +56,7 @@ ctx, ctxCancel := context.WithTimeout(context.Background(), 10 * time.Second)
 defer ctxCancel()
 
 k := "SELECT TIMESTAMPTOSTRING(WINDOWSTART,'yyyy-MM-dd HH:mm:ss','Europe/London') AS WINDOW_START, TIMESTAMPTOSTRING(WINDOWEND,'HH:mm:ss','Europe/London') AS WINDOW_END, DOG_SIZE, DOGS_CT FROM DOGS_BY_SIZE WHERE DOG_SIZE='" + s + "';"
-_, r, e := ksqldb.Pull(ctx, ksqlDBServer, k)
+_, r, e := client.Pull(ctx, k)
 
 if e != nil {
     // handle the error better here, e.g. check for no rows returned
@@ -96,7 +103,7 @@ go func() {
 ctx, ctxCancel := context.WithTimeout(context.Background(), 10 * time.Second)
 defer ctxCancel()
 
-e := ksqldb.Push(ctx, ksqlDBServer, k, rc, hc)
+e := client.Push(ctx, k, rc, hc)
 
 if e != nil {
     // handle the error better here, e.g. check for no rows returned
@@ -108,7 +115,7 @@ if e != nil {
 
 [source,go]
 ----
-if err := ksqldb.Execute(ctx, ksqlDBServer, `
+if err := client.Execute(ctx, ksqlDBServer, `
 	CREATE STREAM DOGS (ID STRING KEY, 
 						NAME STRING, 
 						DOGSIZE STRING, 
