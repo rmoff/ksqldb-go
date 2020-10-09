@@ -13,6 +13,10 @@ import (
 	"golang.org/x/net/http2"
 )
 
+var (
+	msgQueryIdNotFound = "(Query ID not found - this is expected for a pull query)"
+)
+
 // Pull queries are like "traditional" RDBMS queries in which
 // the query terminates once the state has been queried.
 //
@@ -93,7 +97,7 @@ func (cl *Client) Pull(ctx context.Context, q string) (h Header, r Payload, err 
 				if _, ok := zz["queryId"].(string); ok {
 					h.queryId = zz["queryId"].(string)
 				} else {
-					cl.log("(Query ID not found - this is expected for a pull query)")
+					cl.log("%s", msgQueryIdNotFound)
 				}
 
 				names, okn := zz["columnNames"].([]interface{})

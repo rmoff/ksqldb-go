@@ -1,17 +1,28 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/rmoff/ksqldb-go"
 )
 
+var (
+	//create ksqldb client in debug mode with logging
+	client = ksqldb.NewClient(ksqlDBServer).Debug()
+)
+
+func execute(query string) error {
+	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	defer cancel()
+	return client.Execute(ctx, query)
+}
+
 func setup() (*ksqldb.Client, error) {
-	//create ksqldb client
-	client := ksqldb.NewClient(ksqlDBServer).Debug()
+
 	// Create the dummy data connector
-	if err := client.Execute(`
+	if err := execute(`
 		CREATE SOURCE CONNECTOR DOGS WITH (
 		'connector.class'             = 'io.mdrogalis.voluble.VolubleSourceConnector',
 		'key.converter'               = 'org.apache.kafka.connect.storage.StringConverter',
@@ -32,7 +43,7 @@ func setup() (*ksqldb.Client, error) {
 	time.Sleep(5 * time.Second)
 
 	// Create the DOGS stream
-	if err := client.Execute(`
+	if err := execute(`
 	CREATE STREAM DOGS (ID STRING KEY, 
 						NAME STRING, 
 						DOGSIZE STRING, 
@@ -48,7 +59,7 @@ func setup() (*ksqldb.Client, error) {
 	time.Sleep(5 * time.Second)
 
 	// Create the DOGS_BY_SIZE table
-	if err := client.Execute(`
+	if err := execute(`
 	CREATE TABLE DOGS_BY_SIZE AS 
 		SELECT DOGSIZE AS DOG_SIZE, COUNT(*) AS DOGS_CT 
 		FROM DOGS WINDOW TUMBLING (SIZE 15 MINUTE) 
