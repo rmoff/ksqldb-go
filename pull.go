@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"golang.org/x/net/http2"
@@ -16,7 +17,8 @@ import (
 // Pull queries are like "traditional" RDBMS queries in which
 // the query terminates once the state has been queried.
 //
-// To use this function pass in the the SQL query statement.
+// To use this function pass in the the SQL query statement, and
+// a boolean for whether full table scans should be enabled.
 //
 // The function returns a ksqldb.Header and ksqldb.Payload
 // which will hold one or more rows of data. You will need to
@@ -30,11 +32,14 @@ import (
 // 			// Do other stuff with the data here
 // 			}
 // 		}
-func (cl *Client) Pull(ctx context.Context, q string) (h Header, r Payload, err error) {
+func (cl *Client) Pull(ctx context.Context, q string, s bool) (h Header, r Payload, err error) {
 
 	// Create the request
-	payload := strings.NewReader("{\"sql\":\"" + q + "\"}")
+	payload := strings.NewReader("{\"properties\":{\"ksql.query.pull.table.scan.enabled\": " + strconv.FormatBool(s) + "},\"sql\":\"" + q + "\"}")
+	// payload := strings.NewReader("{\"sql\":\"" + q + "\"}")
+
 	req, err := http.NewRequestWithContext(ctx, "POST", cl.url+"/query-stream", payload)
+	fmt.Printf("%+v", payload)
 
 	if err != nil {
 		return h, r, err
