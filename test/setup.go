@@ -14,7 +14,7 @@ func setup() (*ksqldb.Client, error) {
 
 	// Create the dummy data connector
 	if err := client.Execute(`
-		CREATE SOURCE CONNECTOR DOGS WITH (
+		CREATE SOURCE CONNECTOR IF NOT EXISTS DOGS WITH (
 		'connector.class'             = 'io.mdrogalis.voluble.VolubleSourceConnector',
 		'key.converter'               = 'org.apache.kafka.connect.storage.StringConverter',
 		'value.converter'             = 'org.apache.kafka.connect.json.JsonConverter',
@@ -35,12 +35,12 @@ func setup() (*ksqldb.Client, error) {
 
 	// Create the DOGS stream
 	if err := client.Execute(`
-	CREATE STREAM DOGS (ID STRING KEY, 
+	CREATE STREAM IF NOT EXISTS DOGS (ID STRING KEY, 
 						NAME STRING, 
 						DOGSIZE STRING, 
 						AGE STRING) 
 				  WITH (KAFKA_TOPIC='dogs', 
-				  VALUE_FORMAT='JSON');
+				  VALUE_FORMAT='JSON', PARTITIONS=1);
 	`); err != nil {
 		return nil, fmt.Errorf("Error creating the DOGS stream.\n%v", err)
 	}
@@ -51,7 +51,7 @@ func setup() (*ksqldb.Client, error) {
 
 	// Create the DOGS_BY_SIZE table
 	if err := client.Execute(`
-	CREATE TABLE DOGS_BY_SIZE AS 
+	CREATE TABLE IF NOT EXISTS DOGS_BY_SIZE AS 
 		SELECT DOGSIZE AS DOG_SIZE, COUNT(*) AS DOGS_CT 
 		FROM DOGS WINDOW TUMBLING (SIZE 15 MINUTE) 
 		GROUP BY DOGSIZE;
