@@ -20,3 +20,14 @@ func (cl *Client) Debug() *Client {
 	cl.isDebug = true
 	return cl
 }
+
+// SetDebug enables or disables debug mode
+func (cl *Client) SetDebug(mode bool) *Client {
+	cl.isDebug = mode
+	return cl
+}
+
+// GetDebugMode gets the current debug mode
+func (cl *Client) GetDebugMode() bool {
+	return cl.isDebug
+}
