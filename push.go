@@ -6,10 +6,12 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"golang.org/x/net/http2"
 )
@@ -66,6 +68,8 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 			},
 		}
 	}
+
+	go cl.heartbeat(*client, ctx)
 
 	//  make the request
 	cl.log("Sending ksqlDB request:\n\t%v", q)
@@ -165,4 +169,55 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 
 	}
 	return nil
+}
+
+func (cl *Client) heartbeat(client http.Client, ctx context.Context) {
+	missedHeartbeat := 0
+	heartbeatThreshold := 9 // Default for KSQL Server is close connection after 10 minutes of no activity
+	ticker := time.NewTicker(1 * time.Minute)
+
+	for range ticker.C {
+		fmt.Println("Sending heartbeat...")
+
+		pingPayload := strings.NewReader("{\"ksql\":\"SHOW STREAMS;\"}")
+		pingReq, err := http.NewRequest("POST", cl.url+"/ksql", pingPayload)
+		cl.log("Sending ksqlDB request:\n\t%v", pingPayload)
+		if err != nil {
+			missedHeartbeat += 1
+			cl.log("Couldn't create new HTTP request, %s", err)
+		} else {
+
+			res, err := client.Do(pingReq)
+			if err != nil {
+				missedHeartbeat += 1
+				log.Printf("Failed to send heartbeat: %v", res.StatusCode)
+			} else {
+
+				bodyBytes, err := ioutil.ReadAll(res.Body)
+				if err != nil {
+					missedHeartbeat += 1
+					log.Printf("Failed to read heartbeat body: %v", res.StatusCode)
+				} else {
+					res.Body.Close()
+
+					body := string(bodyBytes)
+
+					if res.StatusCode != 200 {
+						missedHeartbeat += 1
+						log.Printf("The heartbeat did not return a success code:\n%v / %v", res.StatusCode, string(body))
+					} else {
+						missedHeartbeat = 0
+						fmt.Println("Got heartbeat!")
+					}
+				}
+			}
+		}
+
+		if missedHeartbeat == heartbeatThreshold {
+			defer ctx.Done()
+
+			cl.log("Missed %s heartbeats, close connection", heartbeatThreshold)
+			ticker.Stop()
+		}
+	}
 }
