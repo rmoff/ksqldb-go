@@ -41,7 +41,7 @@ import (
 // 				ID = row[1].(string)
 func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- Header) (err error) {
 
-	payload := strings.NewReader(`{"properties":{"ksql.streams.auto.offset.reset": "latest"},"sql":"` + q + "\"}")
+	payload := strings.NewReader(`{"properties":{"ksql.streams.auto.offset.reset": "latest"},"sql":"` + cl.SanitizeQuery(q) + `"}`)
 	req, err := cl.newQueryStreamRequest(ctx, payload)
 	if err != nil {
 		return fmt.Errorf("error creating new request with context: %w", err)
@@ -90,7 +90,7 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 			defer close(hc)
 			defer func() { doThis = false }()
 			// Try to close the query
-			payload := strings.NewReader("{\"queryId\":\"" + h.queryId + "\"}")
+			payload := strings.NewReader(`{"queryId":"` + h.queryId + `"}`)
 			req, err := cl.newCloseQueryRequest(ctx, payload)
 
 			cl.log("closing ksqlDB query\t%v", h.queryId)
