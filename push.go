@@ -104,7 +104,7 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 			}
 			defer res.Body.Close()
 
-			if res.StatusCode != 200 {
+			if res.StatusCode != http.StatusOK {
 				return fmt.Errorf("close query failed:\n%v", res)
 			}
 			log.Println("query closed.")
@@ -115,7 +115,7 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 			if err != nil {
 				doThis = false
 			}
-			if res.StatusCode != 200 {
+			if res.StatusCode != http.StatusOK {
 				return fmt.Errorf("the http request did not return a success code:\n%v / %v", res.StatusCode, string(body))
 			}
 			// log.Println(string(body))
