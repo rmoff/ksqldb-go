@@ -41,10 +41,10 @@ import (
 // 				ID = row[1].(string)
 func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- Header) (err error) {
 
-	payload := strings.NewReader("{\"properties\":{\"ksql.streams.auto.offset.reset\": \"latest\"},\"sql\":\"" + q + "\"}")
-	req, err := http.NewRequestWithContext(ctx, "POST", cl.url+"/query-stream", payload)
+	payload := strings.NewReader(`{"properties":{"ksql.streams.auto.offset.reset": "latest"},"sql":"` + q + "\"}")
+	req, err := cl.newQueryStreamRequest(ctx, payload)
 	if err != nil {
-		return err
+		return fmt.Errorf("error creating new request with context: %w", err)
 	}
 
 	// If we've got creds to pass, let's pass them
@@ -53,7 +53,7 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 	}
 
 	client := &http.Client{}
-	if req.URL.Scheme == "http" {
+	if cl.IsHttpRequest() {
 		// ksqlDB uses HTTP2 and if the server is on HTTP then Golang will not
 		// use HTTP2 unless we force it to, thus.
 		// Without this you get the error `http2: unsupported scheme`
@@ -68,10 +68,11 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 	}
 
 	//  make the request
-	cl.log("Sending ksqlDB request:\n\t%v", q)
+	cl.log("sending ksqlDB request:\n\t%v", q)
 	res, err := client.Do(req)
+
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to send request: %v", err)
 	}
 	defer res.Body.Close()
 
@@ -90,20 +91,23 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 			defer func() { doThis = false }()
 			// Try to close the query
 			payload := strings.NewReader("{\"queryId\":\"" + h.queryId + "\"}")
-			req, err := http.NewRequestWithContext(ctx, "POST", cl.url+"/close-query", payload)
-			cl.log("Closing ksqlDB query\t%v", h.queryId)
+			req, err := cl.newCloseQueryRequest(ctx, payload)
+
+			cl.log("closing ksqlDB query\t%v", h.queryId)
 			if err != nil {
-				return fmt.Errorf("Failed to construct HTTP request to cancel query\n%v", err)
+				return fmt.Errorf("failed to construct http request to cancel query\n%w", err)
 			}
 
 			res, err := client.Do(req)
 			if err != nil {
-				return fmt.Errorf("Failed to execute HTTP request to cancel query\n%v", err)
+				return fmt.Errorf("failed to execute http request to cancel query\n%w", err)
 			}
+			defer res.Body.Close()
+
 			if res.StatusCode != 200 {
-				return fmt.Errorf("Close query failed:\n%v", res)
+				return fmt.Errorf("close query failed:\n%v", res)
 			}
-			log.Println("Query closed.")
+			log.Println("query closed.")
 		default:
 
 			// Read the next chunk
@@ -112,14 +116,14 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 				doThis = false
 			}
 			if res.StatusCode != 200 {
-				return fmt.Errorf("The HTTP request did not return a success code:\n%v / %v", res.StatusCode, string(body))
+				return fmt.Errorf("the http request did not return a success code:\n%v / %v", res.StatusCode, string(body))
 			}
 			// log.Println(string(body))
 			if len(body) > 0 {
 
 				// Parse the output
 				if err := json.Unmarshal(body, &x); err != nil {
-					return fmt.Errorf("Could not parse the response as JSON:\n%v\n%v", err, string(body))
+					return fmt.Errorf("could not parse the response as JSON:\n%w\n%v", err, string(body))
 				}
 
 				switch zz := x.(type) {
@@ -129,7 +133,7 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 					if _, ok := zz["queryId"].(string); ok {
 						h.queryId = zz["queryId"].(string)
 					} else {
-						cl.log("Query ID not found - this is expected for a pull query")
+						cl.log("query id not found - this is expected for a pull query")
 					}
 
 					names, okn := zz["columnNames"].([]interface{})
@@ -160,9 +164,7 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 					rc <- zz
 				}
 			}
-
 		}
-
 	}
 	return nil
 }

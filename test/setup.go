@@ -9,10 +9,10 @@ import (
 
 func setup() (*ksqldb.Client, error) {
 
-	//create ksqlDB client
+	// create ksqlDB client
 	client := ksqldb.NewClient(ksqlDBServer, ksqlDBUser, ksqlDBPW).Debug()
 
-	// Create the dummy data connector
+	// create the dummy data connector
 	if err := client.Execute(`
 		CREATE SOURCE CONNECTOR IF NOT EXISTS DOGS WITH (
 		'connector.class'             = 'io.mdrogalis.voluble.VolubleSourceConnector',
@@ -26,14 +26,14 @@ func setup() (*ksqldb.Client, error) {
 		'topic.dogs.throttle.ms'    = 1000 
 		);
 		`); err != nil {
-		return nil, fmt.Errorf("Error creating the source connector.\n%v", err)
+		return nil, fmt.Errorf("error creating the source connector.\n%v", err)
 	}
 
-	// This is a bit lame but without doing the cool stuff with CommandId etc
+	// this is a bit lame but without doing the cool stuff with CommandId etc
 	// it's the easiest way to make sure the topic exists before continuing
 	time.Sleep(5 * time.Second)
 
-	// Create the DOGS stream
+	// create the DOGS stream
 	if err := client.Execute(`
 	CREATE STREAM IF NOT EXISTS DOGS (ID STRING KEY, 
 						NAME STRING, 
@@ -42,21 +42,21 @@ func setup() (*ksqldb.Client, error) {
 				  WITH (KAFKA_TOPIC='dogs', 
 				  VALUE_FORMAT='JSON', PARTITIONS=1);
 	`); err != nil {
-		return nil, fmt.Errorf("Error creating the DOGS stream.\n%v", err)
+		return nil, fmt.Errorf("error creating the dogs stream.\n%v", err)
 	}
 
-	// This is a bit lame but without doing the cool stuff with CommandId etc
+	// this is a bit lame but without doing the cool stuff with CommandId etc
 	// it's the easiest way to make sure the stream exists before continuing
 	time.Sleep(5 * time.Second)
 
-	// Create the DOGS_BY_SIZE table
+	// create the DOGS_BY_SIZE table
 	if err := client.Execute(`
 	CREATE TABLE IF NOT EXISTS DOGS_BY_SIZE AS 
 		SELECT DOGSIZE AS DOG_SIZE, COUNT(*) AS DOGS_CT 
 		FROM DOGS WINDOW TUMBLING (SIZE 15 MINUTE) 
 		GROUP BY DOGSIZE;
 	`); err != nil {
-		return nil, fmt.Errorf("Error creating the DOGS stream.\n%v", err)
+		return nil, fmt.Errorf("error creating the dogs stream.\n%v", err)
 	}
 	// This is a bit lame but without doing the cool stuff with CommandId etc
 	// it's the easiest way to make sure the table exists before continuing

@@ -8,17 +8,20 @@ import (
 )
 
 func TestClientDebugModeAfterClientInit(t *testing.T) {
+	t.Parallel()
 	client := ksqldb.NewClient("http://example.com", "testuser", "testpassword")
 	assert.False(t, client.GetDebugMode(), false)
 }
 
 func TestClientDebugMethod(t *testing.T) {
+	t.Parallel()
 	client := ksqldb.NewClient("http://example.com", "testuser", "testpassword")
 	client.Debug()
 	assert.True(t, client.GetDebugMode())
 }
 
 func TestClientSetDebug(t *testing.T) {
+	t.Parallel()
 	client := ksqldb.NewClient("http://example.com", "testuser", "testpassword")
 	client.SetDebug(true)
 	assert.True(t, client.GetDebugMode())

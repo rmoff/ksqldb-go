@@ -1,5 +1,13 @@
 package ksqldb
 
+const (
+	QUERY_STREAM_ENDPOINT = "/query-stream"
+	INSERTS_ENDPOINT      = "/inserts-stream"
+	CLOSE_QUERY_ENDPOINT  = "/close-query"
+	KSQL_ENDPOINT         = "/ksql"
+	INFO_ENDPOINT         = "/info"
+)
+
 // Row represents a row returned from a query
 type Row []interface{}
 
@@ -20,9 +28,10 @@ type Column struct {
 
 // The ksqlDB client
 type Client struct {
-	url      string
-	username string
-	password string
-	isDebug  bool
-	logf     func(format string, v ...interface{})
+	urlScheme string
+	url       string
+	username  string
+	password  string
+	isDebug   bool
+	logf      func(format string, v ...interface{})
 }

@@ -18,7 +18,7 @@ func getDogStats(client *ksqldb.Client, s string) (e error) {
 
 	if e != nil {
 		// handle the error better here, e.g. check for no rows returned
-		return fmt.Errorf("Error running Pull request against ksqlDB:\n%v", e)
+		return fmt.Errorf("error running pull request against ksqlDB:\n%w", e)
 	}
 
 	var WINDOW_START string

@@ -62,7 +62,7 @@ _, r, e := client.Pull(ctx, k, false)
 
 if e != nil {
     // handle the error better here, e.g. check for no rows returned
-    return fmt.Errorf("Error running Pull request against ksqlDB:\n%v", e)
+    return fmt.Errorf("error running pull request against ksqlDB:\n%v", e)
 }
 
 var DOG_SIZE string
@@ -109,7 +109,7 @@ e := client.Push(ctx, k, rc, hc)
 
 if e != nil {
     // handle the error better here, e.g. check for no rows returned
-    return fmt.Errorf("Error running Push request against ksqlDB:\n%v", e)
+    return fmt.Errorf("error running push request against ksqlDB:\n%v", e)
 }
 ----
 
@@ -125,7 +125,7 @@ if err := client.Execute(ctx, ksqlDBServer, `
 				  WITH (KAFKA_TOPIC='dogs', 
 				  VALUE_FORMAT='JSON');
 `); err != nil {
-    return fmt.Errorf("Error creating the DOGS stream.\n%v", err)
+    return fmt.Errorf("error creating the dogs stream.\n%v", err)
 }
 ----
 

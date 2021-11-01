@@ -3,5 +3,5 @@ package ksqldb
 import "errors"
 
 var (
-	ErrNotFound = errors.New("No result found")
+	ErrNotFound = errors.New("no result found")
 )

@@ -49,7 +49,7 @@ func getDogUpdates(client *ksqldb.Client) (err error) {
 
 	if e != nil {
 		// handle the error better here, e.g. check for no rows returned
-		return fmt.Errorf("Error running Push request against ksqlDB:\n%v", e)
+		return fmt.Errorf("error running push request against ksqlDB:\n%v", e)
 	}
 
 	return nil

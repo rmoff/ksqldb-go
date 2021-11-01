@@ -35,16 +35,14 @@ import (
 func (cl *Client) Pull(ctx context.Context, q string, s bool) (h Header, r Payload, err error) {
 
 	// Create the request
-	payload := strings.NewReader("{\"properties\":{\"ksql.query.pull.table.scan.enabled\": " + strconv.FormatBool(s) + "},\"sql\":\"" + q + "\"}")
-	// payload := strings.NewReader("{\"sql\":\"" + q + "\"}")
+	payload := strings.NewReader(`{"properties":{"ksql.query.pull.table.scan.enabled": ` + strconv.FormatBool(s) + `},"sql":"` + q + `"}`)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", cl.url+"/query-stream", payload)
-	fmt.Printf("%+v", payload)
+	req, err := cl.newQueryStreamRequest(ctx, payload)
+	cl.log("%+v", payload)
 
 	if err != nil {
-		return h, r, err
+		return h, r, fmt.Errorf("can't create new request with context:\n%w", err)
 	}
-	req.Header.Add("Accept", "application/json; charset=utf-8")
 
 	// If we've got creds to pass, let's pass them
 	if cl.username != "" {
@@ -52,10 +50,11 @@ func (cl *Client) Pull(ctx context.Context, q string, s bool) (h Header, r Paylo
 	}
 
 	client := &http.Client{}
-	if req.URL.Scheme == "http" {
+	if cl.IsHttpRequest() {
 		// ksqlDB uses HTTP2 and if the server is on HTTP then Golang will not
 		// use HTTP2 unless we force it to, thus.
 		// Without this you get the error `http2: unsupported scheme`
+		// TODO: refactor transport for unit testing
 		client.Transport = &http2.Transport{
 			AllowHTTP: true,
 			// Pretend we are dialing a TLS endpoint.
@@ -68,23 +67,23 @@ func (cl *Client) Pull(ctx context.Context, q string, s bool) (h Header, r Paylo
 
 	res, err := client.Do(req)
 	if err != nil {
-		return h, r, err
+		return h, r, fmt.Errorf("can't do request:\n%w", err)
 	}
 	defer res.Body.Close()
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return h, r, err
+		return h, r, fmt.Errorf("can't read response body:\n%w", err)
 	}
 
-	if res.StatusCode != 200 {
-		return h, r, fmt.Errorf("The HTTP request did not return a success code:\n%v / %v", res.StatusCode, string(body))
+	if res.StatusCode != http.StatusOK {
+		return h, r, fmt.Errorf("the http request did not return a success code:\n%v / %v", res.StatusCode, string(body))
 	}
 
 	var x []interface{}
 	// Parse the output
 	if err := json.Unmarshal(body, &x); err != nil {
-		return h, r, fmt.Errorf("Could not parse the response as JSON:\n%v\n%v", err, string(body))
+		return h, r, fmt.Errorf("could not parse the response as json:\n%w\n%v", err, string(body))
 
 	}
 
@@ -95,6 +94,7 @@ func (cl *Client) Pull(ctx context.Context, q string, s bool) (h Header, r Paylo
 		// len 1 means we just got a header, no rows
 		// Should we define our own error types here so we can return more clearly
 		// an indicator that no rows were found?
+		// ANSWER: yes
 		return h, r, ErrNotFound
 	default:
 		for _, z := range x {
@@ -105,7 +105,8 @@ func (cl *Client) Pull(ctx context.Context, q string, s bool) (h Header, r Paylo
 				if _, ok := zz["queryId"].(string); ok {
 					h.queryId = zz["queryId"].(string)
 				} else {
-					cl.log("(Query ID not found - this is expected for a pull query)")
+					// it is a hard fact, so we should throw an error?
+					cl.log("(query id not found - this is expected for a pull query)")
 				}
 
 				names, okn := zz["columnNames"].([]interface{})
@@ -131,11 +132,9 @@ func (cl *Client) Pull(ctx context.Context, q string, s bool) (h Header, r Paylo
 			case []interface{}:
 				// It's a row of data
 				r = append(r, zz)
-
 			}
 		}
 
 		return h, r, nil
-
 	}
 }
