@@ -9,21 +9,21 @@ import (
 
 func setup() (*ksqldb.Client, error) {
 
-	// create ksqlDB client
 	client := ksqldb.NewClient(ksqlDBServer, ksqlDBUser, ksqlDBPW).Debug()
 
 	// create the dummy data connector
+	// IF NOT EXISTS didnt works - it throws an error - this is a bug in the ksql-rest-api
 	if err := client.Execute(`
-		CREATE SOURCE CONNECTOR IF NOT EXISTS DOGS WITH (
-		'connector.class'             = 'io.mdrogalis.voluble.VolubleSourceConnector',
-		'key.converter'               = 'org.apache.kafka.connect.storage.StringConverter',
-		'value.converter'             = 'org.apache.kafka.connect.json.JsonConverter',
+		CREATE SOURCE CONNECTOR DOGS WITH (
+		'connector.class'               = 'io.mdrogalis.voluble.VolubleSourceConnector',
+		'key.converter'                 = 'org.apache.kafka.connect.storage.StringConverter',
+		'value.converter'               = 'org.apache.kafka.connect.json.JsonConverter',
 		'value.converter.schemas.enable'='false',
-		'genkp.dogs.with'             = '#{Internet.uuid}',
-		'genv.dogs.name.with'       = '#{Dog.name}',
-		'genv.dogs.dogsize.with'       = '#{Dog.size}',
-		'genv.dogs.age.with'        = '#{Dog.age}',
-		'topic.dogs.throttle.ms'    = 1000 
+		'genkp.dogs.with'               = '#{Internet.uuid}',
+		'genv.dogs.name.with'           = '#{Dog.name}',
+		'genv.dogs.dogsize.with'        = '#{Dog.size}',
+		'genv.dogs.age.with'            = '#{Dog.age}',
+		'topic.dogs.throttle.ms'        = 1000 
 		);
 		`); err != nil {
 		return nil, fmt.Errorf("error creating the source connector.\n%v", err)

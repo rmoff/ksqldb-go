@@ -118,10 +118,11 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 			if res.StatusCode != http.StatusOK {
 				return fmt.Errorf("the http request did not return a success code:\n%v / %v", res.StatusCode, string(body))
 			}
-			// log.Println(string(body))
+			log.Println(body)
 			if len(body) > 0 {
 
 				// Parse the output
+				// this is not realy json what comes in!
 				if err := json.Unmarshal(body, &x); err != nil {
 					return fmt.Errorf("could not parse the response as JSON:\n%w\n%v", err, string(body))
 				}

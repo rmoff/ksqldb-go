@@ -1,3 +1,5 @@
 .env
 coverage.out
-test/test
+bin
+!bin/.keep
+TODO.md

@@ -20,13 +20,12 @@ func main() {
 		log.Printf("Failed to run setup statements.\n%v\nExiting.", err)
 		os.Exit(1)
 	}
-
 	// Do a pull query
 	fmt.Printf("\n\n" + `
 	  	  🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀
 		✨It's… a Golang client for ksqlDB! ✨
 		  🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀
-
+	
 	Check this out, we can do pull queries, which are like K/V lookups
 	against materialised views of state built from streams of events in Kafka:` + "\n\n")
 	if e := getDogStats(client, "medium"); e != nil {
@@ -37,7 +36,7 @@ func main() {
 	// Do a push query
 	fmt.Printf("\n\n" + `
 		                      ❇️ ❇️ ❇️ ❇️ ❇️ ❇️
-
+	
 	➜ We can also do push queries, in which we subscribe to a stream of
 	notifications of events. This could be every event arriving on a topic,
 	or it could be events that match a given condition specified in a WHERE

@@ -6,6 +6,7 @@ const (
 	CLOSE_QUERY_ENDPOINT  = "/close-query"
 	KSQL_ENDPOINT         = "/ksql"
 	INFO_ENDPOINT         = "/info"
+	HEALTHCHECK_ENDPOINT  = "/healthcheck"
 )
 
 // Row represents a row returned from a query
@@ -34,4 +35,27 @@ type Client struct {
 	password  string
 	isDebug   bool
 	logf      func(format string, v ...interface{})
+}
+
+type ServerInfo struct {
+	Version        string `json:"version"`
+	KafkaClusterID string `json:"kafkaClusterId"`
+	KSQLServiceID  string `json:"ksqlServiceId"`
+}
+
+type ServerInfoResponse struct {
+	KSQLServerInfo ServerInfo `json:"KsqlServerInfo"`
+}
+
+type ServerHealth struct {
+	IsHealthy *bool `json:"isHealthy"`
+	Details   struct {
+		Metastore struct {
+			IsHealthy *bool `json:"isHealthy"`
+		} `json:"metastore"`
+		Kafka struct {
+			IsHealthy *bool `json:"isHealthy"`
+		} `json:"kafka"`
+	} `json:"details"`
+	KSQLServiceID string `json:"ksqlServiceId"`
 }
