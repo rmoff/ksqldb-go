@@ -17,6 +17,9 @@ build-all-in-one:
 build-cobra:  
 	cd examples/cobra-test && go build . && mv cobra-test ../../bin
 
+build-ksqlgrammar:  
+	cd examples/ksqlgrammar && go build . && mv ksqlgrammar ../../bin
+
 test:
 	$(GOTEST) -v ./... -short
 
@@ -33,6 +36,9 @@ doc:	## generate godocs and start a local documentation webserver on port 8085
 
 lint:
 	golangci-lint run
+
+create-grammar:
+	java -jar `pwd`/antlr/antlr-4.7.1-complete.jar -Dlanguage=Go -o parser KSql.g4 
 
 clean-compose-all-in-one:	
 	cd examples/all-in-one && docker-compose down && docker-compose up -d && cd ..
