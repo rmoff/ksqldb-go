@@ -46,7 +46,8 @@ func (cl *Client) newPostRequest(ctx context.Context, endpoint string, payload i
 	if err != nil {
 		return req, fmt.Errorf("can't create new request with context:\n%w", err)
 	}
-	req.Header.Add("Accept", "application/json; charset=utf-8")
+	req.Header.Add("Content-Type", "application/vnd.ksql.v1+json; q=0.9, application/json; q=0.5")
+	// req.Header.Add("Accept", "application/vnd.ksql.v1+json; q=0.9, application/json; q=0.5")
 	return req, nil
 }
 
