@@ -56,7 +56,7 @@ go run ./examples/all-in-one
 
 The [Cobra](https://github.com/spf13/cobra) example splits the different use cases into `Cobra` commands.
 
-Start the docker-compose from the all-in-one example and then:
+Start docker-compose from the all-in-one example as shown above and then:
 
 ```bash
 $ go run ./examples/cobra-test
@@ -88,16 +88,18 @@ Use "cobra-test [command] --help" for more information about a command.
 
 ### KSql Grammar example
 
-This example was written to test and fix the `Antlr4` generation problems for golang. We have changed the `Antlr4` file, cause there are some type problems. `Antlr4` code generation introduced some bugs, which we had fix manually. So, be carefull if you are using our `Makefile` to generate the `KSqlParser`. It breaks the code!
+This example was written to test and fix the `Antlr4` generation problems for Golang. We changed the `Antlr4` file because there are some type issues. The `Antlr4` code generation introduced some bugs that we had to fix manually. So be careful when you use our `Makefile` to generate the `KSqlParser`. It will break the code!
 
-We had copied the `Antlr4` file from the original sources from `confluent`.
-It seems, that some errors will not be found by the parser, because the terminal symbols are not existing in the grammar.
+We had copied the `Antlr4` file from the original sources of `confluent`.
+It seems that some errors are not found by the parser because the terminal symbols are not present in the grammar.
 
-The Parser is used to check the `KSql Syntax`. If there are syntax errors, we are collecting the errors and you'll get a notice about them.
+The parser is used to check the `KSql syntax`. If there are syntax errors, we collect the errors and you get a notification about it.
 
-The example has a bug in in the `Select` statement to output the errors.
+The example has an error in the `Select` statement to output the errors.
 
 Feel free to play around :)
+
+Translated with www.DeepL.com/Translator (free version)
 
 ## How to use the ksqldb-go package?
 
@@ -210,4 +212,4 @@ Made with [contrib.rocks](https://contrib.rocks).
 
 ## License
 
-[Apache Apache License Version 2.0](LICENSE)
+[Apache License Version 2.0](LICENSE)
