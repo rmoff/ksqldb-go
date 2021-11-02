@@ -15,13 +15,19 @@ func (kse *KSqlSyntaxError) Error() string {
 	return fmt.Sprintf("error on line(%v):column(%v): %v", kse.line, kse.column, kse.msg)
 }
 
+type KSqlSyntaxErrorList []KSqlSyntaxError
+
+func (ksl *KSqlSyntaxErrorList) Error() string {
+	return fmt.Sprintf("%v sql syntax errors found", len(*ksl))
+}
+
 type KSqlErrorListener struct {
 	*antlr.DefaultErrorListener
-	Errors []error
+	Errors KSqlSyntaxErrorList
 }
 
 func (c *KSqlErrorListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
-	c.Errors = append(c.Errors, &KSqlSyntaxError{
+	c.Errors = append(c.Errors, KSqlSyntaxError{
 		line:   line,
 		column: column,
 		msg:    msg,

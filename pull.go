@@ -34,6 +34,12 @@ import (
 // 		}
 func (cl *Client) Pull(ctx context.Context, q string, s bool) (h Header, r Payload, err error) {
 
+	// we're kick in our ksqlparser to check the query string
+	ksqlerr := cl.ParseKSQL(q)
+	if ksqlerr != nil {
+		return h, r, ksqlerr
+	}
+
 	// Create the request
 	payload := strings.NewReader(`{"properties":{"ksql.query.pull.table.scan.enabled": ` + strconv.FormatBool(s) + `},"sql":"` + q + `"}`)
 
@@ -106,7 +112,8 @@ func (cl *Client) Pull(ctx context.Context, q string, s bool) (h Header, r Paylo
 					h.queryId = zz["queryId"].(string)
 				} else {
 					// it is a hard fact, so we should throw an error?
-					cl.log("(query id not found - this is expected for a pull query)")
+					// log interface needs a format and a interface{}
+					cl.log("%v", "(query id not found - this is expected for a pull query)")
 				}
 
 				names, okn := zz["columnNames"].([]interface{})

@@ -16,36 +16,79 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"log"
+	"time"
 
+	"github.com/rmoff/ksqldb-go"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // pushCmd represents the push command
 var pushCmd = &cobra.Command{
 	Use:   "push",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("push called")
-	},
+	Short: "push dogs example like all-in-one example, but with ParseKSQL",
 }
 
 func init() {
+	pushCmd.Run = push
 	rootCmd.AddCommand(pushCmd)
+}
 
-	// Here you will define your flags and configuration settings.
+func push(cmd *cobra.Command, args []string) {
+	host := viper.GetString("host")
+	user := viper.GetString("username")
+	password := viper.GetString("password")
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// pushCmd.PersistentFlags().String("foo", "", "A help for foo")
+	client := ksqldb.NewClient(host, user, password).Debug()
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// pushCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	k := "SELECT ROWTIME, ID, NAME, DOGSIZE, AGE FROM DOGS EMIT CHANGES;"
+
+	// you can parse your ksql statement like this
+	// err := client.ParseKSQL(k)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	rc := make(chan ksqldb.Row)
+	hc := make(chan ksqldb.Header, 1)
+
+	// This Go routine will handle rows as and when they
+	// are sent to the channel
+	go func() {
+		var DATA_TS float64
+		var ID string
+		var NAME string
+		var DOG_SIZE string
+		var AGE string
+		for row := range rc {
+			if row != nil {
+				// Should do some type assertions here
+				DATA_TS = row[0].(float64)
+				ID = row[1].(string)
+				NAME = row[2].(string)
+				DOG_SIZE = row[3].(string)
+				AGE = row[4].(string)
+
+				// Handle the timestamp
+				t := int64(DATA_TS)
+				ts := time.Unix(t/1000, 0).Format(time.RFC822)
+
+				fmt.Printf("🐾New dog at %v: '%v' is %v and %v (id %v)\n", ts, NAME, DOG_SIZE, AGE, ID)
+			}
+		}
+
+	}()
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	defer cancel()
+
+	e := client.Push(ctx, k, rc, hc)
+
+	if e != nil {
+		// handle the error better here, e.g. check for no rows returned
+		log.Fatalf("error running push request against ksqlDB:\n%v", e)
+	}
 }

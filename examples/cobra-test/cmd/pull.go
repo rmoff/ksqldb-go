@@ -53,13 +53,13 @@ func dogstats(cmd *cobra.Command, args []string) {
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()
-	header, payload, err := client.Pull(ctx, k, true)
+	_, _, err := client.Pull(ctx, k, true)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Default().Println(header)
-	log.Default().Println(payload)
+	//log.Default().Println(header)
+	//log.Default().Println(payload)
 	// I'm lazy, so I don't want to make loops for myself. It's wasted time...
 	// we are needing a better solution...
 

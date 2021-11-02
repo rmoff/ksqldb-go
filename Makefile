@@ -2,7 +2,7 @@ GO=go
 GOCOVER=$(GO) tool cover
 GOTEST=$(GO) test
 
-.PHONY: fmt lint vet test test-cover all
+.PHONY: fmt dev lint vet test test-cover build-all-in-one build-cobra build-ksqlgrammar all
 
 all:
 	make fmt vet lint test

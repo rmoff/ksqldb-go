@@ -43,7 +43,15 @@ import (
 // 				ID = row[1].(string)
 func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- Header) (err error) {
 
-	payload := strings.NewReader(`{"properties":{"ksql.streams.auto.offset.reset": "latest"},"sql":"` + cl.SanitizeQuery(q) + `"}`)
+	// we're kick in our ksqlparser to check the query string
+	ksqlerr := cl.ParseKSQL(q)
+	if ksqlerr != nil {
+		return ksqlerr
+	}
+
+	payload := strings.NewReader(`{"properties":{"ksql.streams.auto.offset.reset": "latest"},"sql":"` + q + `"}`)
+	cl.log("payload: %v", *payload)
+
 	req, err := cl.newQueryStreamRequest(ctx, payload)
 	if err != nil {
 		return fmt.Errorf("error creating new request with context: %w", err)
@@ -69,7 +77,7 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 		}
 	}
 
-	go cl.heartbeat(*client, ctx)
+	go cl.heartbeat(client, &ctx)
 
 	//  make the request
 	cl.log("sending ksqlDB request:\n\t%v", q)
@@ -83,8 +91,8 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 	reader := bufio.NewReader(res.Body)
 
 	doThis := true
-	var x interface{}
-	var h Header
+	var row interface{}
+	var header Header
 
 	for doThis {
 		select {
@@ -94,10 +102,11 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 			defer close(hc)
 			defer func() { doThis = false }()
 			// Try to close the query
-			payload := strings.NewReader(`{"queryId":"` + h.queryId + `"}`)
+			payload := strings.NewReader(`{"queryId":"` + header.queryId + `"}`)
+			cl.log("payload: %v", *payload)
 			req, err := cl.newCloseQueryRequest(ctx, payload)
 
-			cl.log("closing ksqlDB query\t%v", h.queryId)
+			cl.log("closing ksqlDB query\t%v", header.queryId)
 			if err != nil {
 				return fmt.Errorf("failed to construct http request to cancel query\n%w", err)
 			}
@@ -122,21 +131,22 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 			if res.StatusCode != http.StatusOK {
 				return fmt.Errorf("the http request did not return a success code:\n%v / %v", res.StatusCode, string(body))
 			}
-			log.Println(body)
+			// log.Println(body)
 			if len(body) > 0 {
 
 				// Parse the output
-				// this is not realy json what comes in!
-				if err := json.Unmarshal(body, &x); err != nil {
-					return fmt.Errorf("could not parse the response as JSON:\n%w\n%v", err, string(body))
+				// hier knallt es
+				fmt.Println("body:>", string(body), "<")
+				if err := json.Unmarshal(body, &row); err != nil {
+					return fmt.Errorf("!!!could not parse the response as JSON: %w\n%v", err, string(body))
 				}
 
-				switch zz := x.(type) {
+				switch zz := row.(type) {
 				case map[string]interface{}:
 					// It's a header row, so extract the data
 					// {"queryId":null,"columnNames":["WINDOW_START","WINDOW_END","DOG_SIZE","DOGS_CT"],"columnTypes":["STRING","STRING","STRING","BIGINT"]}
 					if _, ok := zz["queryId"].(string); ok {
-						h.queryId = zz["queryId"].(string)
+						header.queryId = zz["queryId"].(string)
 					} else {
 						cl.log("query id not found - this is expected for a pull query")
 					}
@@ -148,7 +158,7 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 							if n, ok := names[col].(string); n != "" && ok {
 								if t, ok := types[col].(string); t != "" && ok {
 									a := Column{Name: n, Type: t}
-									h.columns = append(h.columns, a)
+									header.columns = append(header.columns, a)
 
 								} else {
 									cl.log("Nil type found for column %v", col)
@@ -160,12 +170,12 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 					} else {
 						cl.log("Column names/types not found in header:\n%v", zz)
 					}
-					// log.Println("Header:", h)
-					hc <- h
+					cl.log("Header: \n%v\n", header)
+					hc <- header
 
 				case []interface{}:
 					// It's a row of data
-					// log.Println("Row:", zz)
+					cl.log("Row: \n%v\n", zz)
 					rc <- zz
 				}
 			}
@@ -174,16 +184,28 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 	return nil
 }
 
-func (cl *Client) heartbeat(client http.Client, ctx context.Context) {
+// heartbeat sends a heartbeat to the server
+//
+// The default for KSQL server is a 10 minute timeout, which is a problem on low volume connections.
+// `heartbeat` must be used on a go routine like this `go cl.heartbeat(*client, ctx)`
+//
+// This fixes issuue #17 by adding a gorountine which lists the streams every minute to keep the connection alive.
+// If we miss 9 heartbeats (9 minutes), then close the connection since KSQL Server only keeps it alive for 10 minutes by default.
+//
+// TODO: we have introduced a healthcheck endpoint, we should refactor this if the http.Client lives in the ksqldb.Client{}
+// and reusing http connections
+func (cl *Client) heartbeat(client *http.Client, ctx *context.Context) {
 	missedHeartbeat := 0
 	heartbeatThreshold := 9 // Default for KSQL Server is close connection after 10 minutes of no activity
 	ticker := time.NewTicker(1 * time.Minute)
 
 	for range ticker.C {
+		// Here we are seeing, that the current ksqldb.Client.log function not fullfills all use cases
+		// This message must only shown, if debug is enabled
 		fmt.Println("Sending heartbeat...")
 
-		pingPayload := strings.NewReader("{\"ksql\":\"SHOW STREAMS;\"}")
-		pingReq, err := http.NewRequest("POST", cl.url+"/ksql", pingPayload)
+		pingPayload := strings.NewReader(`{"ksql":"SHOW STREAMS;"}`)
+		pingReq, err := cl.newKsqlRequest(pingPayload)
 		cl.log("Sending ksqlDB request:\n\t%v", pingPayload)
 		if err != nil {
 			missedHeartbeat += 1
@@ -217,7 +239,9 @@ func (cl *Client) heartbeat(client http.Client, ctx context.Context) {
 		}
 
 		if missedHeartbeat == heartbeatThreshold {
-			defer ctx.Done()
+			// why do you defer this?
+			// defer ctx.Done()
+			(*ctx).Done()
 
 			cl.log("Missed %s heartbeats, close connection", heartbeatThreshold)
 			ticker.Stop()
