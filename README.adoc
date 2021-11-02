@@ -2,9 +2,11 @@
 Robin Moffatt <robin@moffatt.me>
 v0.04, 8 October 2020
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/rmoff/ksqldb-go.svg)](https://pkg.go.dev/github.com/rmoff/ksqldb-go)
+
 :toc:
 
-This is a Go client for https://ksqldb.io/[ksqlDB]. It supports both pull and push queries, as well as command execution. 
+This is a Go client for https://ksqldb.io/[ksqlDB]. It supports both pull and push queries, as well as command execution. Furthermore you can get the server-infos, -health and parse your ksql-statements with the provided KSqlParser.
 
 ⚠️ Disclaimer #1: https://rmoff.net/2020/06/25/learning-golang-some-rough-notes-s01e00/[I am brand new to Go!] Tips (or PRs) to improve the code very welcome :)
 
@@ -34,11 +36,11 @@ go get -u github.com/rmoff/ksqldb-go
 
 == Examples
 
-See the link:test/environment.adoc[test environment here], and link:test/main.go[this sample code] which you can run with
+See the link:examples/all-in-one/environment.adoc[test environment here], and link:examples/all-in-one/main.go[this sample code] which you can run with
 
 [source,bash]
 ----
-go run ./test/
+go run ./examples/all-in-one
 ----
 
 Create a ksqlDB Client 
@@ -132,3 +134,6 @@ if err := client.Execute(ctx, ksqlDBServer, `
 == TODO
 
 See https://github.com/rmoff/ksqldb-go/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22
+
+And this, if we want to provide a full blown ksqlDB client. 
+See https://docs.ksqldb.io/en/latest/developer-guide/ksqldb-clients/contributing/

@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-// ServerInfo gets the info for your server
+// ServerInfo provides information about your server
 func (cl *Client) Healthcheck() (*ServerHealth, error) {
 	info := ServerHealth{}
 	res, err := http.Get(cl.url + HEALTHCHECK_ENDPOINT)

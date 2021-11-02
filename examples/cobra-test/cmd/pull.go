@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -28,7 +29,7 @@ import (
 // pullCmd represents the pull command
 var pullCmd = &cobra.Command{
 	Use:   "pull",
-	Short: "Pets the dog stats by ksql",
+	Short: "print the dog stats",
 }
 
 func init() {
@@ -53,14 +54,26 @@ func dogstats(cmd *cobra.Command, args []string) {
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()
-	_, _, err := client.Pull(ctx, k, true)
+	_, r, err := client.Pull(ctx, k, true)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	//log.Default().Println(header)
-	//log.Default().Println(payload)
-	// I'm lazy, so I don't want to make loops for myself. It's wasted time...
-	// we are needing a better solution...
+	var WINDOW_START string
+	var WINDOW_END string
+	var DOG_SIZE string
+	var DOGS_CT float64
+	for _, row := range r {
+
+		if row != nil {
+			// Should do some type assertions here
+			WINDOW_START = row[0].(string)
+			WINDOW_END = row[1].(string)
+			DOG_SIZE = row[2].(string)
+			DOGS_CT = row[3].(float64)
+			dogs := fmt.Sprintf("🐶 There are %v dogs size %v between %v and %v", DOGS_CT, DOG_SIZE, WINDOW_START, WINDOW_END)
+			fmt.Println(dogs)
+		}
+	}
 
 }

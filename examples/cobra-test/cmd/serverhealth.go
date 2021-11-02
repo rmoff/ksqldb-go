@@ -27,7 +27,7 @@ import (
 // serverhealthCmd represents the serverhealth command
 var serverhealthCmd = &cobra.Command{
 	Use:   "serverhealth",
-	Short: "serverhealts of your servers",
+	Short: "display the server state of your servers",
 }
 
 func init() {

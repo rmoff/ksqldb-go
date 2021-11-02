@@ -34,21 +34,22 @@ import (
 // 		}
 func (cl *Client) Pull(ctx context.Context, q string, s bool) (h Header, r Payload, err error) {
 
+	// first sanitize the query
+	query := cl.SanitizeQuery(q)
 	// we're kick in our ksqlparser to check the query string
-	ksqlerr := cl.ParseKSQL(q)
+	ksqlerr := cl.ParseKSQL(query)
 	if ksqlerr != nil {
 		return h, r, ksqlerr
 	}
 
 	// Create the request
-	payload := strings.NewReader(`{"properties":{"ksql.query.pull.table.scan.enabled": ` + strconv.FormatBool(s) + `},"sql":"` + q + `"}`)
+	payload := strings.NewReader(`{"properties":{"ksql.query.pull.table.scan.enabled": ` + strconv.FormatBool(s) + `},"sql":"` + query + `"}`)
 
 	req, err := cl.newQueryStreamRequest(ctx, payload)
-	cl.log("%+v", payload)
-
 	if err != nil {
 		return h, r, fmt.Errorf("can't create new request with context:\n%w", err)
 	}
+	req.Header.Add("Accept", "application/json; charset=utf-8")
 
 	// If we've got creds to pass, let's pass them
 	if cl.username != "" {
@@ -89,7 +90,7 @@ func (cl *Client) Pull(ctx context.Context, q string, s bool) (h Header, r Paylo
 	var x []interface{}
 	// Parse the output
 	if err := json.Unmarshal(body, &x); err != nil {
-		return h, r, fmt.Errorf("could not parse the response as json:\n%w\n%v", err, string(body))
+		return h, r, fmt.Errorf("could not parse the response as json:\n%w", err)
 
 	}
 

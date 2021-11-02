@@ -30,7 +30,9 @@ func NewClient(url string, u string, p string) *Client {
 }
 
 func (cl *Client) newQueryStreamRequest(ctx context.Context, payload io.Reader) (*http.Request, error) {
-	return cl.newPostRequest(ctx, QUERY_STREAM_ENDPOINT, payload)
+	req, err := cl.newPostRequest(ctx, QUERY_STREAM_ENDPOINT, payload)
+	//req.Header.Add("Accept", "application/vnd.ksql.v1+json; q=0.9, application/json; q=0.5")
+	return req, err
 }
 
 func (cl *Client) newCloseQueryRequest(ctx context.Context, payload io.Reader) (*http.Request, error) {
@@ -46,8 +48,13 @@ func (cl *Client) newPostRequest(ctx context.Context, endpoint string, payload i
 	if err != nil {
 		return req, fmt.Errorf("can't create new request with context:\n%w", err)
 	}
-	req.Header.Add("Content-Type", "application/vnd.ksql.v1+json; q=0.9, application/json; q=0.5")
+	// TODO: unclear which request needs which header
+	// req.Header.Add("Content-Type", "application/vnd.ksql.v1+json; charset=utf-8")
+	//  req.Header.Add("Accept", "application/json; charset=utf-8")
+	// This is described in the api, but it does'nt works!
+	// https://docs.confluent.io/5.2.0/ksql/docs/developer-guide/api.html#content-types
 	// req.Header.Add("Accept", "application/vnd.ksql.v1+json; q=0.9, application/json; q=0.5")
+
 	return req, nil
 }
 

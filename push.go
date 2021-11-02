@@ -16,6 +16,10 @@ import (
 	"golang.org/x/net/http2"
 )
 
+const (
+	HEARTBEAT_TRESHOLD = 9 // After 9 minutes the connection will be closed
+)
+
 // Push queries are continuous queries in which new events
 // or changes to a table's state are pushed to the client.
 // You can think of them as subscribing to a stream of changes.
@@ -43,14 +47,16 @@ import (
 // 				ID = row[1].(string)
 func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- Header) (err error) {
 
+	// first sanitize the query
+	query := cl.SanitizeQuery(q)
 	// we're kick in our ksqlparser to check the query string
-	ksqlerr := cl.ParseKSQL(q)
+	ksqlerr := cl.ParseKSQL(query)
 	if ksqlerr != nil {
 		return ksqlerr
 	}
 
-	payload := strings.NewReader(`{"properties":{"ksql.streams.auto.offset.reset": "latest"},"sql":"` + q + `"}`)
-	cl.log("payload: %v", *payload)
+	// https://docs.confluent.io/5.0.4/ksql/docs/installation/server-config/config-reference.html#ksql-streams-auto-offset-reset
+	payload := strings.NewReader(`{"properties":{"ksql.streams.auto.offset.reset": "latest"},"sql":"` + query + `"}`)
 
 	req, err := cl.newQueryStreamRequest(ctx, payload)
 	if err != nil {
@@ -103,7 +109,7 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 			defer func() { doThis = false }()
 			// Try to close the query
 			payload := strings.NewReader(`{"queryId":"` + header.queryId + `"}`)
-			cl.log("payload: %v", *payload)
+			// cl.log("payload: %v", *payload)
 			req, err := cl.newCloseQueryRequest(ctx, payload)
 
 			cl.log("closing ksqlDB query\t%v", header.queryId)
@@ -135,10 +141,8 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 			if len(body) > 0 {
 
 				// Parse the output
-				// hier knallt es
-				fmt.Println("body:>", string(body), "<")
 				if err := json.Unmarshal(body, &row); err != nil {
-					return fmt.Errorf("!!!could not parse the response as JSON: %w\n%v", err, string(body))
+					return fmt.Errorf("could not parse the response as JSON: %w\n%v", err, string(body))
 				}
 
 				switch zz := row.(type) {
@@ -170,12 +174,12 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 					} else {
 						cl.log("Column names/types not found in header:\n%v", zz)
 					}
-					cl.log("Header: \n%v\n", header)
+					// cl.log("Header: \n%v\n", header)
 					hc <- header
 
 				case []interface{}:
 					// It's a row of data
-					cl.log("Row: \n%v\n", zz)
+					// cl.log("Row: \n%v\n", zz)
 					rc <- zz
 				}
 			}
@@ -196,17 +200,15 @@ func (cl *Client) Push(ctx context.Context, q string, rc chan<- Row, hc chan<- H
 // and reusing http connections
 func (cl *Client) heartbeat(client *http.Client, ctx *context.Context) {
 	missedHeartbeat := 0
-	heartbeatThreshold := 9 // Default for KSQL Server is close connection after 10 minutes of no activity
+	heartbeatThreshold := HEARTBEAT_TRESHOLD // Default for KSQL Server is close connection after 10 minutes of no activity
 	ticker := time.NewTicker(1 * time.Minute)
 
 	for range ticker.C {
-		// Here we are seeing, that the current ksqldb.Client.log function not fullfills all use cases
-		// This message must only shown, if debug is enabled
-		fmt.Println("Sending heartbeat...")
+		cl.log("%v", "sending heartbeat...")
 
 		pingPayload := strings.NewReader(`{"ksql":"SHOW STREAMS;"}`)
 		pingReq, err := cl.newKsqlRequest(pingPayload)
-		cl.log("Sending ksqlDB request:\n\t%v", pingPayload)
+		cl.log("sending ksqlDB request:\n\t%v", pingPayload)
 		if err != nil {
 			missedHeartbeat += 1
 			cl.log("Couldn't create new HTTP request, %s", err)
@@ -215,13 +217,13 @@ func (cl *Client) heartbeat(client *http.Client, ctx *context.Context) {
 			res, err := client.Do(pingReq)
 			if err != nil {
 				missedHeartbeat += 1
-				log.Printf("Failed to send heartbeat: %v", res.StatusCode)
+				cl.log("failed to send heartbeat: %v", res.StatusCode)
 			} else {
 
 				bodyBytes, err := ioutil.ReadAll(res.Body)
 				if err != nil {
 					missedHeartbeat += 1
-					log.Printf("Failed to read heartbeat body: %v", res.StatusCode)
+					cl.log("failed to read heartbeat body: %v", res.StatusCode)
 				} else {
 					res.Body.Close()
 
@@ -229,10 +231,10 @@ func (cl *Client) heartbeat(client *http.Client, ctx *context.Context) {
 
 					if res.StatusCode != 200 {
 						missedHeartbeat += 1
-						log.Printf("The heartbeat did not return a success code:\n%v / %v", res.StatusCode, string(body))
+						cl.log("the heartbeat did not return a success code:\n%v / %v", res.StatusCode, string(body))
 					} else {
 						missedHeartbeat = 0
-						fmt.Println("Got heartbeat!")
+						cl.log("%v", "got heartbeat")
 					}
 				}
 			}
@@ -243,7 +245,7 @@ func (cl *Client) heartbeat(client *http.Client, ctx *context.Context) {
 			// defer ctx.Done()
 			(*ctx).Done()
 
-			cl.log("Missed %s heartbeats, close connection", heartbeatThreshold)
+			cl.log("missed %s heartbeats, close connection", heartbeatThreshold)
 			ticker.Stop()
 		}
 	}

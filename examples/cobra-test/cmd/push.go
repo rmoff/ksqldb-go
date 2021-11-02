@@ -44,13 +44,8 @@ func push(cmd *cobra.Command, args []string) {
 
 	client := ksqldb.NewClient(host, user, password).Debug()
 
+	// You don't need to parse your ksql statement; Client.Pull parses it for you
 	k := "SELECT ROWTIME, ID, NAME, DOGSIZE, AGE FROM DOGS EMIT CHANGES;"
-
-	// you can parse your ksql statement like this
-	// err := client.ParseKSQL(k)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
 
 	rc := make(chan ksqldb.Row)
 	hc := make(chan ksqldb.Header, 1)
@@ -76,7 +71,7 @@ func push(cmd *cobra.Command, args []string) {
 				t := int64(DATA_TS)
 				ts := time.Unix(t/1000, 0).Format(time.RFC822)
 
-				fmt.Printf("🐾New dog at %v: '%v' is %v and %v (id %v)\n", ts, NAME, DOG_SIZE, AGE, ID)
+				fmt.Printf("🐾 New dog at %v: '%v' is %v and %v (id %v)\n", ts, NAME, DOG_SIZE, AGE, ID)
 			}
 		}
 
