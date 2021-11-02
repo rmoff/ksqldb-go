@@ -99,8 +99,6 @@ The example has an error in the `Select` statement to output the errors.
 
 Feel free to play around :)
 
-Translated with www.DeepL.com/Translator (free version)
-
 ## How to use the ksqldb-go package?
 
 ### Create a ksqlDB Client
