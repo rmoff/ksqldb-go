@@ -1,8 +1,17 @@
+ifdef::env-github[]
+:status:
+endif::[]
+
+:uri-godoc-status: https://pkg.go.dev/github.com/rmoff/ksqldb-go
+:img-godoc-status: https://pkg.go.dev/badge/github.com/rmoff/ksqldb-go.svg
+
+ifdef::status[]
+image:{img-godoc-status}[Build Status Badge,link={uri-godoc-status}]
+endif::[]
+
 = ksqlDB Go library
 Robin Moffatt <robin@moffatt.me>
 v0.04, 8 October 2020
-
-[![Go Reference](https://pkg.go.dev/badge/github.com/rmoff/ksqldb-go.svg)](https://pkg.go.dev/github.com/rmoff/ksqldb-go)
 
 :toc:
 
