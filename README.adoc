@@ -2,6 +2,16 @@
 Robin Moffatt <robin@moffatt.me>
 v0.04, 8 October 2020
 
+'''
+'''
+'''
+
+🌟🌟🌟 *@thmeitz has recently forked this—with my gratitude and blessing—in order to develop it further - please see his repo at https://github.com/thmeitz/ksqldb-go[thmeitz/ksqldb-go]*
+
+'''
+'''
+'''
+
 :toc:
 
 This is a Go client for https://ksqldb.io/[ksqlDB]. It supports both pull and push queries, as well as command execution. 
